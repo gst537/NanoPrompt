@@ -1,0 +1,28 @@
+# NanoPrompt Backend
+
+## Virtual Environment
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+## Environment
+.env
+
+## Database
+*.db
+*.sqlite
+
+## IDE
+.vscode/
+.idea/
+
+## OS
+.DS_Store
+Thumbs.db
+
+# Node / Frontend
+node_modules/
+.next/
+out/
+dist/

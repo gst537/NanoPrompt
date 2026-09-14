@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+tiktoken
+python-dotenv
+sqlalchemy
+aiosqlite
+pydantic
+google-genai
+spacy
+jsmin

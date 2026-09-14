@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "NanoPrompt Compressor",
+  "version": "1.0.0",
+  "description": "Aggressively compress your LLM prompts before sending them. Save 40-70% on token costs.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "contextMenus"
+  ],
+  "host_permissions": [
+    "http://localhost:8000/*",
+    "https://chatgpt.com/*",
+    "https://claude.ai/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://*/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://claude.ai/*"
+      ],
+      "css": ["styles.css"],
+      "js": ["ui.js", "content.js"]
+    }
+  ],
+  "action": {
+    "default_title": "NanoPrompt Settings",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+K",
+        "mac": "Command+Shift+K"
+      },
+      "description": "Open NanoPrompt Scratchpad"
+    }
+  }
+}
