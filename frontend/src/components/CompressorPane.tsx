@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { compressContent, verifyCompression, runSurgeon, type CompressResponse, type VerifyResponse } from "@/lib/api";
+import { compressContent, compressFile, verifyCompression, runSurgeon, type CompressResponse, type VerifyResponse } from "@/lib/api";
 import StatsCard from "./StatsCard";
 import ProofPane from "./ProofPane";
 
-type ContentType = "auto" | "code" | "text" | "json" | "debug";
+type ContentType = "auto" | "code" | "text" | "json" | "debug" | "file";
 
 export default function CompressorPane() {
   const [input, setInput] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<CompressResponse | null>(null);
   const [loading, setLoading] = useState(false);
   
@@ -24,14 +25,19 @@ export default function CompressorPane() {
   const [copied, setCopied] = useState(false);
 
   const handleCompress = async () => {
-    if (!input.trim()) return;
+    if (contentType !== "file" && !input.trim()) return;
+    if (contentType === "file" && !file) return;
+    
     setLoading(true);
     setError(null);
     setProof(null); // Reset proof on new compression
     setSurgeonResult(null);
 
     try {
-      if (contentType === "debug") {
+      if (contentType === "file") {
+        const response = await compressFile(file!);
+        setResult(response);
+      } else if (contentType === "debug") {
         if (!trace.trim()) {
           throw new Error("Stack trace is required for AST Surgeon.");
         }
@@ -82,6 +88,7 @@ export default function CompressorPane() {
 
   const handleClear = () => {
     setInput("");
+    setFile(null);
     setTrace("");
     setResult(null);
     setSurgeonResult(null);
@@ -95,6 +102,7 @@ export default function CompressorPane() {
     { value: "text", label: "Text", icon: "📝" },
     { value: "json", label: "JSON", icon: "📦" },
     { value: "debug", label: "Debug (AST)", icon: "🔬" },
+    { value: "file", label: "File", icon: "📄" },
   ];
 
   return (
@@ -147,23 +155,47 @@ export default function CompressorPane() {
               />
             </div>
           )}
-          <div className={`bg-codeBg border border-codeBorder flex flex-col relative ${contentType === "debug" ? "h-[224px]" : "h-96"}`}>
-            <div className="px-4 py-3 bg-surfaceCard hairline-b flex justify-between items-center">
-              <span className="text-[11px] font-mono font-semibold text-textSecondary uppercase tracking-widest">
-                {contentType === "debug" ? "Full Source Code" : "Input Context"}
-              </span>
-              <span className="text-[10px] font-mono text-textMuted">
-                {input.length} chars
-              </span>
+          {contentType === "file" ? (
+            <div className="bg-codeBg border border-codeBorder flex flex-col relative h-96 justify-center items-center">
+              <input
+                type="file"
+                accept=".pdf,.docx"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className="hidden"
+                id="file-upload"
+              />
+              <label
+                htmlFor="file-upload"
+                className="flex flex-col items-center cursor-pointer p-10 border-2 border-dashed border-surfaceBorder hover:border-acid transition-all group"
+              >
+                <span className="text-4xl mb-4 group-hover:text-acid text-textSecondary transition-all">📄</span>
+                <span className="text-sm font-mono font-bold text-textPrimary uppercase tracking-widest mb-2 group-hover:text-acid transition-all">
+                  Upload PDF or DOCX
+                </span>
+                <span className="text-xs font-mono text-textMuted text-center max-w-[200px]">
+                  {file ? file.name : "Click or drag file to extract & compress"}
+                </span>
+              </label>
             </div>
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Paste your prompt, code, or context here..."
-              className="w-full h-full p-5 bg-transparent text-textPrimary border-none font-mono text-sm leading-relaxed focus:ring-0 resize-none outline-none custom-scrollbar"
-              spellCheck="false"
-            />
-          </div>
+          ) : (
+            <div className={`bg-codeBg border border-codeBorder flex flex-col relative ${contentType === "debug" ? "h-[224px]" : "h-96"}`}>
+              <div className="px-4 py-3 bg-surfaceCard hairline-b flex justify-between items-center">
+                <span className="text-[11px] font-mono font-semibold text-textSecondary uppercase tracking-widest">
+                  {contentType === "debug" ? "Full Source Code" : "Input Context"}
+                </span>
+                <span className="text-[10px] font-mono text-textMuted">
+                  {input.length} chars
+                </span>
+              </div>
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Paste your prompt, code, or context here..."
+                className="w-full h-full p-5 bg-transparent text-textPrimary border-none font-mono text-sm leading-relaxed focus:ring-0 resize-none outline-none custom-scrollbar"
+                spellCheck="false"
+              />
+            </div>
+          )}
         </motion.div>
 
         {/* Output Pane */}
@@ -211,9 +243,9 @@ export default function CompressorPane() {
       >
         <button
           onClick={handleCompress}
-          disabled={loading || !input.trim() || (contentType === "debug" && !trace.trim())}
+          disabled={loading || (contentType === "file" ? !file : !input.trim()) || (contentType === "debug" && !trace.trim())}
           className={`px-8 py-3 rounded-none font-mono text-sm tracking-widest uppercase font-bold transition-all border ${
-            loading || !input.trim() || (contentType === "debug" && !trace.trim())
+            loading || (contentType === "file" ? !file : !input.trim()) || (contentType === "debug" && !trace.trim())
               ? "bg-surfaceCard border-surfaceBorder text-textMuted cursor-not-allowed"
               : "bg-acid border-acid text-obsidianBg hover:bg-white hover:border-white shadow-[0_0_20px_rgba(204,255,0,0.3)] cursor-pointer"
           }`}

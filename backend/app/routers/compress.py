@@ -2,7 +2,7 @@
 API routes for NanoPrompt compression and statistics.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -24,6 +24,7 @@ from app.services.text_compressor import compress_text, compress_json
 from app.services.llm_compressor import run_proof_engine
 from app.services.token_counter import count_tokens, calculate_savings_usd, get_compression_ratio
 from app.services.surgeon import extract_error_slice, parse_stack_trace
+from app.services.file_extractor import extract_pdf, extract_docx
 
 from typing import List, Dict
 
@@ -89,6 +90,62 @@ async def compress(request: CompressRequest, db: AsyncSession = Depends(get_db))
             detected_type=detected_type,
         ),
     )
+
+@router.post("/compress/file", response_model=CompressResponse)
+async def compress_file(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+    """
+    Extract text from a PDF or DOCX file and compress it.
+    """
+    content_type = file.content_type
+    filename = file.filename or ""
+    
+    file_bytes = await file.read()
+    
+    if content_type == "application/pdf" or filename.lower().endswith('.pdf'):
+        raw_text, extracted_text = extract_pdf(file_bytes)
+    elif content_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" or filename.lower().endswith('.docx'):
+        raw_text, extracted_text = extract_docx(file_bytes)
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported file format. Please upload PDF or DOCX.")
+        
+    if not extracted_text.strip():
+        raise HTTPException(status_code=400, detail="Could not extract any text from the file.")
+
+    # The original tokens should reflect the raw uncompressed messy PDF text.
+    original_tokens = count_tokens(raw_text)
+    
+    # Bypass deep semantic ML compression for documents to perfectly preserve grammar and claims.
+    # We only apply safe regex, whitespace pruning, and basic abbreviations.
+    from app.services.text_compressor import compress_document
+    compressed = compress_document(extracted_text)
+    compressed_tokens = count_tokens(compressed)
+    
+    compression_ratio = get_compression_ratio(original_tokens, compressed_tokens)
+    savings_usd = calculate_savings_usd(original_tokens, compressed_tokens)
+    tokens_saved = original_tokens - compressed_tokens
+
+    log_entry = CompressionLog(
+        input_type="file",
+        original_tokens=original_tokens,
+        compressed_tokens=compressed_tokens,
+        compression_ratio=compression_ratio,
+        savings_usd=savings_usd,
+    )
+    db.add(log_entry)
+    await db.commit()
+
+    return CompressResponse(
+        compressed_text=compressed,
+        stats=CompressionStats(
+            original_tokens=original_tokens,
+            compressed_tokens=compressed_tokens,
+            tokens_saved=tokens_saved,
+            compression_ratio=compression_ratio,
+            savings_usd=savings_usd,
+            detected_type="file",
+        ),
+    )
+
 
 # ─── Proof Engine Endpoint ───────────────────────────────────────────────────
 

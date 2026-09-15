@@ -1,10 +1,27 @@
 """
-Local NLP Rule-based text compressor for prose and natural language content.
-Uses SpaCy for grammatical pruning and a custom technical abbreviation dictionary.
+Local NLP Rule-based and Machine Learning text compressor for prose and natural language content.
+Uses LLMLingua for deep semantic pruning, and falls back to SpaCy/regex.
 """
 
 import re
 import json
+
+try:
+    from llmlingua import PromptCompressor
+    print("Loading LLMLingua model (this may take a moment)...")
+    llm_compressor = PromptCompressor(
+        model_name="microsoft/llmlingua-2-xlm-roberta-large-meetingbank",
+        use_llmlingua2=True,
+        device_map="cpu"
+    )
+    HAS_LLMLINGUA = True
+    print("LLMLingua loaded successfully!")
+except ImportError:
+    HAS_LLMLINGUA = False
+    print("LLMLingua not installed. Falling back to SpaCy.")
+except Exception as e:
+    HAS_LLMLINGUA = False
+    print(f"Failed to load LLMLingua model: {e}")
 
 try:
     import spacy
@@ -117,22 +134,89 @@ def apply_abbreviations(text: str) -> str:
 
 def compress_text(content: str) -> str:
     """
-    Compress natural language text locally using NLP and rules.
+    Compress natural language text locally.
+    Prioritizes LLMLingua machine-learning compression.
+    Falls back to regex/spaCy if LLMLingua is unavailable.
     """
+    if HAS_LLMLINGUA:
+        try:
+            # RATE CONTROL: 0.7 preserves grammar and human prose (drops 30% of tokens)
+            results = llm_compressor.compress_prompt(content, rate=0.7, force_tokens=['\n'])
+            compressed = results.get('compressed_prompt', content)
+            compressed = apply_abbreviations(compressed)
+            # Clean up massive whitespace gaps left behind when LLMLingua drops words
+            compressed = re.sub(r"  +", " ", compressed)
+            compressed = re.sub(r"\n{3,}", "\n\n", compressed)
+            return compressed.strip()
+        except Exception as e:
+            print(f"LLMLingua compression failed: {e}. Falling back to SpaCy.")
+            
+    # Fallback pipeline
     result = content
-
-    # 1. Strip massive conversational phrases
     result = apply_regex_pruning(result)
-    
-    # 2. Use NLP to drop grammatical fluff (a, an, the)
     result = apply_spacy_pruning(result)
-    
-    # 3. Abbreviate
     result = apply_abbreviations(result)
-    
-    # 4. Clean up spaces
     result = re.sub(r"  +", " ", result)
     
+    return result.strip()
+
+def apply_safe_document_pruning(text: str) -> str:
+    """
+    Offline Telegram-style compression using SpaCy.
+    Strips determiners and safe adverbs to save tokens, but explicitly
+    protects negations, verbs, and nouns to perfectly preserve technical claims.
+    """
+    if not HAS_SPACY:
+        return text
+
+    # Process large texts in chunks if necessary, but for now assume doc can handle it
+    # We increase max_length for large PDFs
+    nlp.max_length = 5000000 
+    
+    doc = nlp(text)
+    retained_tokens = []
+    
+    for token in doc:
+        # Protect negations ("not", "no", "never", "n't")
+        if token.dep_ == "neg" or token.text.lower() in ["not", "no", "never", "n't"]:
+            retained_tokens.append(token.text_with_ws)
+            continue
+            
+        # Protect Verbs, Auxiliaries, and Nouns to preserve meaning
+        if token.pos_ in ["VERB", "AUX", "NOUN", "PROPN", "PRON"]:
+            retained_tokens.append(token.text_with_ws)
+            continue
+            
+        # Drop determiners ("a", "an", "the")
+        if token.pos_ == "DET":
+            # Just keep the trailing whitespace if it existed
+            if token.whitespace_:
+                if retained_tokens and not retained_tokens[-1].endswith(" "):
+                    retained_tokens[-1] += " "
+            continue
+            
+        # Drop filler adverbs
+        if token.text.lower() in ["really", "very", "extremely", "actually", "basically", "literally"]:
+            if token.whitespace_:
+                if retained_tokens and not retained_tokens[-1].endswith(" "):
+                    retained_tokens[-1] += " "
+            continue
+            
+        retained_tokens.append(token.text_with_ws)
+        
+    return "".join(retained_tokens).strip()
+
+def compress_document(content: str) -> str:
+    """
+    Safely compresses human documents (PDF/DOCX).
+    Bypasses LLMLingua to preserve exact grammar, context, and negations.
+    Only removes conversational fluff, safe grammatical filler (DET), and excess whitespace.
+    """
+    result = content
+    result = apply_regex_pruning(result)
+    result = apply_safe_document_pruning(result)
+    result = re.sub(r"  +", " ", result)
+    result = re.sub(r"\n{3,}", "\n\n", result)
     return result.strip()
 
 def compress_json(content: str) -> str:

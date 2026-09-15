@@ -31,6 +31,7 @@ async function compressText(text, type, apiUrl) {
 
 // Store the original text to allow undo
 let originalTextCache = "";
+let lastCompressedText = "";
 
 // Inject UI into the page
 function injectUI() {
@@ -63,21 +64,22 @@ function injectUI() {
         chrome.storage.sync.get({ apiUrl: "http://localhost:8000/api/v1/compress" }, async (data) => {
           const result = await compressText(originalTextCache, selectedType, data.apiUrl);
           
-          if (result) {
-            // Replace text
-            inputBox.focus();
-            if (inputBox.tagName.toLowerCase() === 'textarea') {
-              inputBox.select();
-              document.execCommand('insertText', false, result.compressed_text);
-            } else {
-              // Content editable (ChatGPT/Claude)
-              document.execCommand('selectAll', false, null);
-              document.execCommand('insertText', false, result.compressed_text);
-            }
-            
-            // Show stats toast
-            ui.showToast(result.stats.savings_usd, result.stats.tokens_saved);
-            resolve(true);
+            if (result) {
+              lastCompressedText = result.compressed_text;
+              // Replace text
+              inputBox.focus();
+              if (inputBox.tagName.toLowerCase() === 'textarea') {
+                inputBox.select();
+                document.execCommand('insertText', false, result.compressed_text);
+              } else {
+                // Content editable (ChatGPT/Claude)
+                document.execCommand('selectAll', false, null);
+                document.execCommand('insertText', false, result.compressed_text);
+              }
+              
+              // Show stats toast
+              ui.showToast(result.stats.savings_usd, result.stats.tokens_saved);
+              resolve(true);
           } else {
             resolve(false);
           }
@@ -101,14 +103,22 @@ function injectUI() {
     }
   );
 
-  // If user edits the text manually after compression, reset the UI state
-  inputBox.addEventListener("input", () => {
-    if (originalTextCache && 
-        ((inputBox.tagName.toLowerCase() === 'textarea' && inputBox.value !== originalTextCache) || 
-         (inputBox.tagName.toLowerCase() !== 'textarea' && inputBox.textContent !== originalTextCache))) {
-      // The text changed
+  // Use a MutationObserver to detect text changes instead of 'input' events
+  // because ProseMirror (Claude) intercepts or swallows standard input events.
+  const inputObserver = new MutationObserver(() => {
+    if (originalTextCache) {
+      const currentText = inputBox.tagName.toLowerCase() === 'textarea' ? inputBox.value : inputBox.textContent;
+      
+      // If the user clears the box (by submitting) or types something new, reset
+      if (currentText.trim() === "" || (currentText !== originalTextCache && currentText !== lastCompressedText)) {
+        ui.resetState();
+        originalTextCache = "";
+        lastCompressedText = "";
+      }
     }
   });
+
+  inputObserver.observe(inputBox, { characterData: true, childList: true, subtree: true });
 
   // Find the outermost chatbox container to ensure we don't overlap text
   let outerContainer = inputBox.parentElement;

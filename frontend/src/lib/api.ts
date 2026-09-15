@@ -61,6 +61,26 @@ export async function compressContent(
 }
 
 /**
+ * Compress a PDF or DOCX file via the NanoPrompt API.
+ */
+export async function compressFile(file: File): Promise<CompressResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch(`${API_BASE}/api/v1/compress/file`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "File compression failed" }));
+    throw new Error(err.detail || "File compression failed");
+  }
+
+  return res.json();
+}
+
+/**
  * Get aggregate compression statistics.
  */
 export async function getStats(): Promise<AggregateStats> {

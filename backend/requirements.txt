@@ -8,3 +8,9 @@ pydantic
 google-genai
 spacy
 jsmin
+llmlingua
+torch
+python-multipart
+pymupdf
+python-docx
+pillow

@@ -59,6 +59,12 @@ We localized the economics to Indian Rupees (`₹`). We built the massive real-t
 ### Phase 8: The Surgeon Algorithm
 We introduced advanced **Program Slicing**. By splitting the UI into "Stack Trace" and "Source Code", the backend `ASTSurgeon` parses terminal errors, locates the breaking line, and walks backwards through the syntax tree to extract *only* the variable definitions necessary to reproduce the bug.
 
+### Phase 9: Deep Document Compression & Native LLMLingua
+Integrated `microsoft/llmlingua-2-xlm-roberta-large-meetingbank` for deep neural NLP compression on raw text, running entirely locally on CPU. To handle complex documents (PDF/DOCX) without destroying technical claims, we bypassed the neural net and built an offline `spaCy` "Telegram-style" pruner that surgically strips filler while mathematically protecting negations, nouns, and verbs.
+
+### Phase 10: Seamless Chrome In-Page Injection
+The Chrome Extension was upgraded from a simple popup to a full content script injection. The NanoPrompt UI now injects seamlessly below the prompt box inside ChatGPT and Claude. We utilized `MutationObservers` to elegantly manage UI state (Undo/Compress) in complex React/ProseMirror environments, bypassing Manifest V3 ServiceWorker timeouts and keeping the workflow frictionless.
+
 ---
 
 ## 🚀 Quick Start
