@@ -9,11 +9,7 @@
 
 ---
 
-## 📸 Demo
 
-*(Insert GIF or Screenshot of the NanoPrompt UI / Dashboard here)*
-
----
 
 ## 📑 Table of Contents
 - [Features](#-features)
@@ -56,19 +52,45 @@
 
 ---
 
-## 🏗 Architecture & How it Works
+## 🏗 Architecture & Evolution (Phases 1-12)
 
-NanoPrompt operates on a dual-node architecture consisting of a high-speed Python FastAPI backend and a premium Next.js frontend. 
+NanoPrompt was built iteratively to solve the massive token-waste problem in modern AI development.
 
-When text is submitted, NanoPrompt routes it through a specialized pipeline:
-1. **Code:** Parsed via `ast` (Python) or `jsmin` (JS/TS) to strip non-functional tokens.
-2. **Natural Language:** Passes through a chained NLP pipeline: 
-   - **Regex** (Drops deterministic filler)
-   - **SpaCy** (Surgically drops determiners while protecting nouns/verbs/negations)
-   - **LLMLingua** (Deep neural semantic pruning)
-3. **Validation:** The Proof Engine simultaneously queries both the uncompressed and compressed prompts to a cloud LLM (Gemini with Groq failover) to prove the output is semantically identical.
+### Phase 1: The Core Engine
+We established the dual-node architecture: a Next.js frontend communicating with a high-speed Python FastAPI backend. The backend uses `tiktoken` (cl100k_base) to calculate exact token counts and cost reductions. All compressions are asynchronously logged to a local SQLite database via SQLAlchemy.
 
-All savings are calculated locally via `tiktoken` (cl100k_base) and logged asynchronously to a SQLite database for the Global Telemetry Dashboard.
+### Phase 2: Chrome Extension Integration
+We built a Manifest V3 Chrome Extension that allows users to access the compression engine anywhere. By utilizing background service workers, the extension bypasses CORS restrictions to query the local FastAPI server directly, copying the optimized prompt to the clipboard.
+
+### Phase 3: "Editorial Haute Code" UI
+The entire frontend was overhauled into a premium, hyper-modern aesthetic. We utilized Obsidian backgrounds (`#0a0c10`), Acid Green accents (`#ccff00`), sharp geometric hairlines, and smooth `framer-motion` micro-interactions.
+
+### Phase 4: Local NLP Pipeline
+We integrated `spaCy` into the backend for intelligent natural language compression. Instead of simple regex, the engine analyzes sentence structure to drop determiners and polite conversational filler that LLMs do not need, saving up to 30% on chat prompts.
+
+### Phase 5: Code Minification Hardening
+We replaced brittle regex code-stripping with robust AST parsers (`ast` for Python) and `jsmin` for JavaScript/TypeScript, ensuring logic and control flow are never compromised during compression.
+
+### Phase 6: Proof Engine Polish
+We integrated `react-markdown` and `remark-gfm` to elegantly render the LLM output in the Proof Engine. We also built strict rate-limit interceptors (`[RATE_LIMIT_EXCEEDED]`) to gracefully handle Gemini/OpenAI API throttling on free tiers.
+
+### Phase 7: Global Gamification & INR Pricing
+We localized the economics to Indian Rupees (`₹`). We built the massive real-time `GlobalOdometer` component that sits at the top of the dashboard, constantly polling the SQLite database to show the aggregate tokens and capital saved across all active nodes.
+
+### Phase 8: The Surgeon Algorithm
+We introduced advanced **Program Slicing**. By splitting the UI into "Stack Trace" and "Source Code", the backend `ASTSurgeon` parses terminal errors, locates the breaking line, and walks backwards through the syntax tree to extract *only* the variable definitions necessary to reproduce the bug.
+
+### Phase 9: Deep Document Compression & Native LLMLingua
+Integrated `microsoft/llmlingua-2-xlm-roberta-large-meetingbank` for deep neural NLP compression on raw text, running entirely locally on CPU. To handle complex documents (PDF/DOCX) without destroying technical claims, we bypassed the neural net and built an offline `spaCy` "Telegram-style" pruner that surgically strips filler while mathematically protecting negations, nouns, and verbs.
+
+### Phase 10: Seamless Chrome In-Page Injection
+The Chrome Extension was upgraded from a simple popup to a full content script injection. The NanoPrompt UI now injects seamlessly below the prompt box inside ChatGPT and Claude. We utilized `MutationObservers` to elegantly manage UI state (Undo/Compress) in complex React/ProseMirror environments, bypassing Manifest V3 ServiceWorker timeouts and keeping the workflow frictionless.
+
+### Phase 11: The Ablation Studio
+To scientifically prove our token savings, we built a dedicated Ablation Testing suite. We introduced a standalone CLI tool (`ablation_test.py`) and a beautiful `/ablation` web dashboard built with `framer-motion`. This suite runs user prompts through isolated pipeline layers (Regex, SpaCy, LLMLingua) to visualize exactly how each distinct compression strategy performs before the compounding NanoPrompt (All) pipeline takes over.
+
+### Phase 12: Cascading Multi-API Fallback
+To ensure maximum reliability during high-demand traffic spikes (e.g., 503 Overloaded errors on free tiers), we refactored the core LLM engine to support seamless Multi-API failovers. We integrated Groq (Llama-3-8B) as an instantaneous fallback. If the primary Gemini API throws a rate limit or quota error in the Semantic Compressor or Proof Engine, the system silently catches the exception and reroutes the prompt to Groq, guaranteeing uninterrupted service and zero UI breakage.
 
 ---
 
