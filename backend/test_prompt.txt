@@ -1,0 +1,1 @@
+Please generate a small memory-efficient python function that generates the fibonacci sequence without returning a standard list. Thank you so much in advance for your time and assistance!

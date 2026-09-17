@@ -135,26 +135,29 @@ def apply_abbreviations(text: str) -> str:
 def compress_text(content: str) -> str:
     """
     Compress natural language text locally.
-    Prioritizes LLMLingua machine-learning compression.
-    Falls back to regex/spaCy if LLMLingua is unavailable.
+    Chains the pipelines: Regex -> SpaCy -> LLMLingua -> Abbreviations.
     """
+    # 1. Run deterministic rule-based pruning first
+    result = content
+    result = apply_regex_pruning(result)
+    result = apply_spacy_pruning(result)
+
+    # 2. Feed the pre-cleaned text into the Neural Model for deep semantic pruning
     if HAS_LLMLINGUA:
         try:
             # RATE CONTROL: 0.7 preserves grammar and human prose (drops 30% of tokens)
-            results = llm_compressor.compress_prompt(content, rate=0.7, force_tokens=['\n'])
-            compressed = results.get('compressed_prompt', content)
+            llm_results = llm_compressor.compress_prompt(result, rate=0.7, force_tokens=['\n'])
+            compressed = llm_results.get('compressed_prompt', result)
+            
+            # 3. Final technical abbreviations & whitespace cleanup
             compressed = apply_abbreviations(compressed)
-            # Clean up massive whitespace gaps left behind when LLMLingua drops words
             compressed = re.sub(r"  +", " ", compressed)
             compressed = re.sub(r"\n{3,}", "\n\n", compressed)
             return compressed.strip()
         except Exception as e:
-            print(f"LLMLingua compression failed: {e}. Falling back to SpaCy.")
+            print(f"LLMLingua compression failed: {e}. Relying on Regex+SpaCy fallback.")
             
-    # Fallback pipeline
-    result = content
-    result = apply_regex_pruning(result)
-    result = apply_spacy_pruning(result)
+    # 3. Fallback path (if LLMLingua is missing or fails)
     result = apply_abbreviations(result)
     result = re.sub(r"  +", " ", result)
     
@@ -228,3 +231,53 @@ def compress_json(content: str) -> str:
         return json.dumps(parsed, separators=(",", ":"), ensure_ascii=False)
     except (json.JSONDecodeError, ValueError):
         return compress_text(content)
+
+def run_ablation_test(content: str) -> list[dict]:
+    """
+    Runs the content through various isolated compression pipelines to measure ablation impact.
+    """
+    from app.services.token_counter import count_tokens, calculate_savings_usd, get_compression_ratio
+    
+    original_tokens = count_tokens(content)
+    results = []
+    
+    def evaluate(module_name: str, compressed: str):
+        compressed_tokens = count_tokens(compressed)
+        ratio = get_compression_ratio(original_tokens, compressed_tokens)
+        savings = calculate_savings_usd(original_tokens, compressed_tokens)
+        results.append({
+            "module_name": module_name,
+            "original_tokens": original_tokens,
+            "compressed_tokens": compressed_tokens,
+            "tokens_saved": original_tokens - compressed_tokens,
+            "compression_ratio": ratio,
+            "savings_usd": savings,
+            "compressed_text": compressed
+        })
+    
+    # 1. Baseline
+    evaluate("Baseline", content)
+    
+    # 2. Regex + Abbreviations Only
+    regex_abbr_only = apply_abbreviations(apply_regex_pruning(content))
+    evaluate("Regex + Abbreviations", regex_abbr_only)
+    
+    # 3. SpaCy Only
+    if HAS_SPACY:
+        spacy_only = apply_spacy_pruning(content)
+        evaluate("SpaCy NLP", spacy_only)
+    
+    # 4. LLMLingua Only
+    if HAS_LLMLINGUA:
+        try:
+            llm_results = llm_compressor.compress_prompt(content, rate=0.7, force_tokens=['\n'])
+            llm_only = llm_results.get('compressed_prompt', content)
+            evaluate("LLMLingua (Neural)", llm_only)
+        except Exception:
+            pass
+            
+    # 5. NanoPrompt Full Pipeline
+    full_compressed = compress_text(content)
+    evaluate("NanoPrompt (All)", full_compressed)
+    
+    return results

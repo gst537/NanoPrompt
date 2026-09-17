@@ -7,7 +7,8 @@
     "activeTab",
     "scripting",
     "storage",
-    "contextMenus"
+    "contextMenus",
+    "clipboardWrite"
   ],
   "host_permissions": [
     "http://localhost:8000/*",
@@ -41,6 +42,13 @@
         "mac": "Command+Shift+K"
       },
       "description": "Open NanoPrompt Scratchpad"
+    },
+    "compress-selection": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+X",
+        "mac": "Command+Shift+X"
+      },
+      "description": "Compress highlighted text and copy to clipboard"
     }
   }
 }

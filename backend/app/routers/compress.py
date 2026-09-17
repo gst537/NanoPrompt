@@ -17,10 +17,13 @@ from app.models.schemas import (
     HealthResponse,
     SurgeonRequest,
     SurgeonResponse,
+    AblationRequest,
+    AblationResult,
+    AblationResponse
 )
 from app.services.router import detect_content_type
 from app.services.code_compressor import compress_code
-from app.services.text_compressor import compress_text, compress_json
+from app.services.text_compressor import compress_text, compress_json, run_ablation_test
 from app.services.llm_compressor import run_proof_engine
 from app.services.token_counter import count_tokens, calculate_savings_usd, get_compression_ratio
 from app.services.surgeon import extract_error_slice, parse_stack_trace
@@ -169,6 +172,17 @@ async def verify_compression(request: Dict[str, str]):
         "is_equivalent": None # Could add LLM judge here later
     }
 
+
+@router.post("/ablation", response_model=AblationResponse)
+async def ablation_endpoint(request: AblationRequest):
+    """
+    Run the text through an ablation study to test each module's savings.
+    """
+    if not request.content.strip():
+        raise HTTPException(status_code=400, detail="Content cannot be empty")
+        
+    results = run_ablation_test(request.content)
+    return AblationResponse(results=results)
 
 @router.post("/surgeon", response_model=SurgeonResponse)
 async def surgeon_endpoint(request: SurgeonRequest):

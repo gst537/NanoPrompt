@@ -45,6 +45,16 @@ export default function Navbar() {
           >
             <span className="text-[10px] font-mono tracking-wider uppercase">DASHBOARD</span>
           </Link>
+          <Link
+            href="/ablation"
+            className={`px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 ${
+              pathname === "/ablation"
+                ? "border-acid bg-acid text-obsidianBg font-bold"
+                : "border-surfaceBorder hover:border-textSecondary/50 bg-surfaceCard/60 text-textPrimary"
+            }`}
+          >
+            <span className="text-[10px] font-mono tracking-wider uppercase">ABLATION</span>
+          </Link>
         </nav>
       </div>
     </header>

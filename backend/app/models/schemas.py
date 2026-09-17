@@ -78,3 +78,22 @@ class HealthResponse(BaseModel):
     status: str = "ok"
     service: str = "nanoprompt-api"
     version: str = "0.1.0"
+
+class AblationRequest(BaseModel):
+    """Request body for ablation test."""
+    content: str = Field(..., description="The text to run through the ablation test")
+
+class AblationResult(BaseModel):
+    """Ablation result for a specific module."""
+    module_name: str
+    original_tokens: int
+    compressed_tokens: int
+    tokens_saved: int
+    compression_ratio: float
+    savings_usd: float
+    compressed_text: str
+
+class AblationResponse(BaseModel):
+    """Response containing multiple ablation results."""
+    results: list[AblationResult]
+

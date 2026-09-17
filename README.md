@@ -1,80 +1,93 @@
-# 🚀 NanoPrompt — Universal AI Token Optimizer
+# 🚀 NanoPrompt
 
-> **Hyper-compress your LLM prompts, isolate bugs surgically, and reduce your API costs by 40-70%.**
+> **A Universal AI Token Optimizer to hyper-compress LLM prompts, isolate bugs surgically, and reduce your API costs by 40-70%.**
 
-NanoPrompt is a production-grade hybrid compression engine that sits between you and any Large Language Model. By combining mathematical **AST program slicing** for code and **Semantic NLP pruning** for natural language, NanoPrompt locally strips away tokens that LLMs don't need, drastically reducing context bloat before you ever hit a cloud server.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-black?style=flat&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
 ---
 
-## ⚡ Core Capabilities
+## 📸 Demo
 
-- 🔍 **Auto Content Detection** — Automatically classifies input streams as Code, Text, JSON, or Stack Traces.
-- 🔬 **The Surgeon Algorithm (AST Slicing)** — Input a stack trace and a broken script; the Surgeon engine mathematically extracts the specific variable dependency graph, ignoring hundreds of lines of irrelevant logic.
-- 🌳 **Robust Code Minification** — Safely strips docstrings, comments, and whitespace across Python, TS, and JS using `ast` and `jsmin`.
-- ✂️ **Semantic Text Pruning** — Utilizes `spaCy` NLP to strip conversational fluff, filler phrases, and redundant determiners locally.
-- 🧪 **The Proof Engine** — Queries the original prompt and the compressed prompt against an LLM in parallel to mathematically prove semantic equivalence without quality loss, beautifully rendered in Markdown.
-- 💰 **Global Odometer & Telemetry** — A centralized real-time dashboard powered by SQLite that tracks global `₹` savings and token evaporation across all client nodes.
-- 🧩 **Native Chrome Extension** — Trigger NanoPrompt from anywhere on the web using `Cmd+Shift+K` or the right-click context menu, dumping the compressed payload straight to your clipboard.
+*(Insert GIF or Screenshot of the NanoPrompt UI / Dashboard here)*
+
+---
+
+## 📑 Table of Contents
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [Architecture & How it Works](#-architecture--how-it-works)
+- [Getting Started](#-getting-started)
+- [Usage](#-usage)
+- [Project Structure](#-project-structure)
+- [API Reference](#-api-reference)
+- [Testing](#-testing)
+- [Roadmap / Known Issues](#-roadmap--known-issues)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Contact](#-contact)
+
+---
+
+## ✨ Features
+
+- **Auto Content Detection** — Automatically classifies input streams as Code, Text, JSON, or Stack Traces.
+- **The Surgeon Algorithm (AST Slicing)** — Mathematically extracts variable dependency graphs from stack traces, ignoring irrelevant logic.
+- **Robust Code Minification** — Safely strips docstrings, comments, and whitespace across Python, TS, and JS using AST parsing.
+- **Semantic Text Pruning** — Utilizes SpaCy NLP to strip conversational fluff, filler phrases, and redundant determiners locally.
+- **Neural Compression** — Integrates LLMLingua (MeetingBank model) for deep semantic NLP pruning on CPU.
+- **The Proof Engine** — Mathematically proves semantic equivalence between the original and compressed prompt using an LLM.
+- **Cascading Multi-API Fallback** — High-availability LLM routing (Gemini -> Groq Llama-3) to ensure 100% uptime during traffic spikes.
+- **Global Odometer & Telemetry** — A real-time dashboard tracking global ₹ savings and token evaporation.
+- **Seamless Chrome Extension** — Trigger NanoPrompt via `Cmd+Shift+K` or in-page injection directly into ChatGPT and Claude UI.
+- **The Ablation Studio** — Standalone CLI and web dashboard to scientifically visualize token savings per NLP pipeline layer.
 
 ---
 
 ## 🛠 Tech Stack
 
-| Layer       | Technology                          | Role                                      |
-|-------------|-------------------------------------|-------------------------------------------|
-| **Frontend** | Next.js 16, React, TypeScript       | Core application and Telemetry Dashboard  |
-| **UI/UX**    | TailwindCSS v4, Framer Motion       | "Editorial Haute Code" design philosophy  |
-| **Backend**  | FastAPI (Python), Uvicorn           | High-throughput compression APIs          |
-| **Database** | SQLAlchemy + SQLite                 | Persistent telemetry & Global Odometer    |
-| **AI/NLP**   | `tiktoken`, `spaCy`, Python `ast`   | Offline text pruning and program slicing  |
-| **Extension**| Chrome Manifest V3, Service Workers | Cross-origin bypassing & global shortcuts |
+- **Frontend:** Next.js 16, React, TypeScript, TailwindCSS v4, Framer Motion
+- **Backend:** FastAPI (Python), Uvicorn
+- **Database:** SQLite (aiosqlite) + SQLAlchemy
+- **AI/NLP:** `tiktoken`, `spaCy`, `llmlingua`, Python `ast`, Google Gemini API, Groq Llama-3 API
+- **Extension:** Chrome Manifest V3, Service Workers, MutationObservers
 
 ---
 
-## 🏗 Architecture & Evolution (Phases 1-8)
+## 🏗 Architecture & How it Works
 
-NanoPrompt was built iteratively to solve the massive token-waste problem in modern AI development.
+NanoPrompt operates on a dual-node architecture consisting of a high-speed Python FastAPI backend and a premium Next.js frontend. 
 
-### Phase 1: The Core Engine
-We established the dual-node architecture: a Next.js frontend communicating with a high-speed Python FastAPI backend. The backend uses `tiktoken` (cl100k_base) to calculate exact token counts and cost reductions. All compressions are asynchronously logged to a local SQLite database via SQLAlchemy.
+When text is submitted, NanoPrompt routes it through a specialized pipeline:
+1. **Code:** Parsed via `ast` (Python) or `jsmin` (JS/TS) to strip non-functional tokens.
+2. **Natural Language:** Passes through a chained NLP pipeline: 
+   - **Regex** (Drops deterministic filler)
+   - **SpaCy** (Surgically drops determiners while protecting nouns/verbs/negations)
+   - **LLMLingua** (Deep neural semantic pruning)
+3. **Validation:** The Proof Engine simultaneously queries both the uncompressed and compressed prompts to a cloud LLM (Gemini with Groq failover) to prove the output is semantically identical.
 
-### Phase 2: Chrome Extension Integration
-We built a Manifest V3 Chrome Extension that allows users to access the compression engine anywhere. By utilizing background service workers, the extension bypasses CORS restrictions to query the local FastAPI server directly, copying the optimized prompt to the clipboard.
-
-### Phase 3: "Editorial Haute Code" UI
-The entire frontend was overhauled into a premium, hyper-modern aesthetic. We utilized Obsidian backgrounds (`#0a0c10`), Acid Green accents (`#ccff00`), sharp geometric hairlines, and smooth `framer-motion` micro-interactions.
-
-### Phase 4: Local NLP Pipeline
-We integrated `spaCy` into the backend for intelligent natural language compression. Instead of simple regex, the engine analyzes sentence structure to drop determiners and polite conversational filler that LLMs do not need, saving up to 30% on chat prompts.
-
-### Phase 5: Code Minification Hardening
-We replaced brittle regex code-stripping with robust AST parsers (`ast` for Python) and `jsmin` for JavaScript/TypeScript, ensuring logic and control flow are never compromised during compression.
-
-### Phase 6: Proof Engine Polish
-We integrated `react-markdown` and `remark-gfm` to elegantly render the LLM output in the Proof Engine. We also built strict rate-limit interceptors (`[RATE_LIMIT_EXCEEDED]`) to gracefully handle Gemini/OpenAI API throttling on free tiers.
-
-### Phase 7: Global Gamification & INR Pricing
-We localized the economics to Indian Rupees (`₹`). We built the massive real-time `GlobalOdometer` component that sits at the top of the dashboard, constantly polling the SQLite database to show the aggregate tokens and capital saved across all active nodes.
-
-### Phase 8: The Surgeon Algorithm
-We introduced advanced **Program Slicing**. By splitting the UI into "Stack Trace" and "Source Code", the backend `ASTSurgeon` parses terminal errors, locates the breaking line, and walks backwards through the syntax tree to extract *only* the variable definitions necessary to reproduce the bug.
-
-### Phase 9: Deep Document Compression & Native LLMLingua
-Integrated `microsoft/llmlingua-2-xlm-roberta-large-meetingbank` for deep neural NLP compression on raw text, running entirely locally on CPU. To handle complex documents (PDF/DOCX) without destroying technical claims, we bypassed the neural net and built an offline `spaCy` "Telegram-style" pruner that surgically strips filler while mathematically protecting negations, nouns, and verbs.
-
-### Phase 10: Seamless Chrome In-Page Injection
-The Chrome Extension was upgraded from a simple popup to a full content script injection. The NanoPrompt UI now injects seamlessly below the prompt box inside ChatGPT and Claude. We utilized `MutationObservers` to elegantly manage UI state (Undo/Compress) in complex React/ProseMirror environments, bypassing Manifest V3 ServiceWorker timeouts and keeping the workflow frictionless.
+All savings are calculated locally via `tiktoken` (cl100k_base) and logged asynchronously to a SQLite database for the Global Telemetry Dashboard.
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.10+
 - Node.js 18+
+- Python 3.10+
+- An API key from Google Gemini (and optionally Groq for fallback)
 
-### Backend Setup
+### Installation
 
+**1. Clone the repository**
+```bash
+git clone https://github.com/yourusername/nanoprompt.git
+cd nanoprompt
+```
+
+**2. Backend Setup**
 ```bash
 cd backend
 python3 -m venv venv
@@ -82,48 +95,109 @@ source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# Copy environment file and add your GEMINI_API_KEY for the Proof Engine
+# Copy environment config
 cp .env.example .env
+```
+*Edit `.env` to add your `GEMINI_API_KEY` and `GROQ_API_KEY`.*
 
-# Start the server
+**3. Frontend Setup**
+```bash
+cd ../frontend
+npm install
+```
+
+---
+
+## 💻 Usage
+
+**Start the Backend Server**
+```bash
+cd backend
+source venv/bin/activate
 uvicorn app.main:app --reload --port 8000
 ```
+*The API is now running at `http://localhost:8000`. Interactive docs are available at `http://localhost:8000/docs`.*
 
-The API will be available at `http://localhost:8000` with interactive docs at `/docs`.
-
-### Frontend Setup
-
+**Start the Frontend Client**
 ```bash
 cd frontend
-npm install
-
-# Start the dev server
 npm run dev
 ```
+*Access the Web UI at `http://localhost:3000`.*
 
-The app will be available at `http://localhost:3000`.
+---
+
+## 📁 Project Structure
+
+```text
+nanoprompt/
+├── backend/
+│   ├── app/
+│   │   ├── main.py              # FastAPI application entry point
+│   │   ├── routers/             # API route definitions
+│   │   └── services/            # Core compression & LLM logic (Surgeon, Proof Engine)
+│   ├── requirements.txt
+│   └── ablation_test.py         # Standalone CLI ablation testing suite
+├── frontend/
+│   ├── src/
+│   │   ├── app/                 # Next.js App Router (Dashboard, Ablation UI)
+│   │   └── components/          # Reusable React components (Framer Motion UI)
+│   ├── tailwind.config.ts
+│   └── package.json
+└── README.md
+```
 
 ---
 
 ## 📡 API Reference
 
-### `POST /api/v1/compress`
-Standard compression for code or text.
-**Request:** `{ "content": "string", "type": "auto" }`
+- `POST /api/v1/compress` — Standard compression for code or text.
+- `POST /api/v1/surgeon` — AST dependency extraction (Requires `code` and `trace`).
+- `POST /api/v1/ablation` — Runs the input through isolated NLP layers for scientific validation.
+- `POST /api/v1/verify` — Runs the Proof Engine against the cascaded LLM pipeline (Gemini -> Groq).
+- `GET /api/v1/stats` — Retrieves aggregate telemetry for the Global Odometer.
+- `GET /api/v1/history` — Retrieves recent compression logs.
 
-### `POST /api/v1/surgeon`
-AST dependency extraction.
-**Request:** `{ "code": "full script", "trace": "terminal stack trace" }`
-**Response:** `{ "sliced_code": "extracted dependencies", "target_line": 42 }`
+---
 
-### `POST /api/v1/verify`
-Runs the Proof Engine against the Gemini API.
+## 🧪 Testing
 
-### `GET /api/v1/stats`
-Retrieves aggregate telemetry for the Global Odometer.
+To run the standalone Ablation Studio CLI test:
+```bash
+cd backend
+source venv/bin/activate
+python ablation_test.py
+```
+
+---
+
+## 🛣 Roadmap / Known Issues
+
+- [ ] Build standalone desktop app via Tauri or Electron.
+- [ ] Add support for Anthropic Claude API in the Multi-API fallback router.
+- [ ] Implement user authentication and personal history dashboards.
+- [ ] *Known Issue:* The Chrome extension content script occasionally loses state on complex SPAs during heavy DOM mutations.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Even though this project was built rapidly, we'd love community support to add more parsers, improve the neural compression models, or refine the UI.
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ---
 
 ## 📄 License
 
-MIT
+Distributed under the MIT License. See `LICENSE` for more information.
+
+---
+
+## 📫 Contact
+
+Built by the NanoPrompt Team.
+- **Project Link:** [https://github.com/yourusername/nanoprompt](https://github.com/yourusername/nanoprompt)

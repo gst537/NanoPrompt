@@ -137,7 +137,7 @@ export default function CompressorPane() {
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ delay: 0.4 }}
-          className="flex flex-col gap-4"
+          className="flex flex-col gap-4 h-full"
         >
           {contentType === "debug" && (
             <div className="bg-codeBg border border-red-500/30 flex flex-col relative h-32">
@@ -178,7 +178,7 @@ export default function CompressorPane() {
               </label>
             </div>
           ) : (
-            <div className={`bg-codeBg border border-codeBorder flex flex-col relative ${contentType === "debug" ? "h-[224px]" : "h-96"}`}>
+            <div className="bg-codeBg border border-codeBorder flex flex-col relative flex-1 min-h-[384px]">
               <div className="px-4 py-3 bg-surfaceCard hairline-b flex justify-between items-center">
                 <span className="text-[11px] font-mono font-semibold text-textSecondary uppercase tracking-widest">
                   {contentType === "debug" ? "Full Source Code" : "Input Context"}
@@ -203,7 +203,7 @@ export default function CompressorPane() {
           initial={{ x: 20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className={`flex flex-col relative bg-codeBg border transition-colors ${
+          className={`flex flex-col relative h-full bg-codeBg border transition-colors ${
             result || surgeonResult ? "border-acid" : "border-codeBorder"
           }`}
         >
@@ -220,7 +220,7 @@ export default function CompressorPane() {
               </button>
             )}
           </div>
-          <div className={`w-full h-96 p-5 font-mono text-sm leading-relaxed overflow-y-auto whitespace-pre-wrap break-words custom-scrollbar ${result || surgeonResult ? 'text-textPrimary' : 'text-textMuted'}`}>
+          <div className={`flex-1 w-full p-5 font-mono text-sm leading-relaxed overflow-y-auto whitespace-pre-wrap break-words custom-scrollbar ${result || surgeonResult ? 'text-textPrimary' : 'text-textMuted'}`}>
             {surgeonResult 
               ? (
                 <>

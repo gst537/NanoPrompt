@@ -14,3 +14,4 @@ python-multipart
 pymupdf
 python-docx
 pillow
+groq
