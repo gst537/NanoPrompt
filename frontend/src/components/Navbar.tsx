@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
+import { useSettings } from "@/lib/SettingsContext";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { features } = useSettings();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-40 bg-obsidianBg/90 backdrop-blur-md hairline-b px-4 sm:px-8 h-16 flex items-center justify-between transition-all">
@@ -35,26 +37,30 @@ export default function Navbar() {
           >
             <span className="text-[10px] font-mono tracking-wider uppercase">COMPRESS</span>
           </Link>
-          <Link
-            href="/dashboard"
-            className={`px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 ${
-              pathname === "/dashboard"
-                ? "border-acid bg-acid text-obsidianBg font-bold"
-                : "border-surfaceBorder hover:border-textSecondary/50 bg-surfaceCard/60 text-textPrimary"
-            }`}
-          >
-            <span className="text-[10px] font-mono tracking-wider uppercase">DASHBOARD</span>
-          </Link>
-          <Link
-            href="/ablation"
-            className={`px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 ${
-              pathname === "/ablation"
-                ? "border-acid bg-acid text-obsidianBg font-bold"
-                : "border-surfaceBorder hover:border-textSecondary/50 bg-surfaceCard/60 text-textPrimary"
-            }`}
-          >
-            <span className="text-[10px] font-mono tracking-wider uppercase">ABLATION</span>
-          </Link>
+          {features.enableDashboard && (
+            <Link
+              href="/dashboard"
+              className={`px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 ${
+                pathname === "/dashboard"
+                  ? "border-acid bg-acid text-obsidianBg font-bold"
+                  : "border-surfaceBorder hover:border-textSecondary/50 bg-surfaceCard/60 text-textPrimary"
+              }`}
+            >
+              <span className="text-[10px] font-mono tracking-wider uppercase">DASHBOARD</span>
+            </Link>
+          )}
+          {features.enableAblation && (
+            <Link
+              href="/ablation"
+              className={`px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 ${
+                pathname === "/ablation"
+                  ? "border-acid bg-acid text-obsidianBg font-bold"
+                  : "border-surfaceBorder hover:border-textSecondary/50 bg-surfaceCard/60 text-textPrimary"
+              }`}
+            >
+              <span className="text-[10px] font-mono tracking-wider uppercase">ABLATION</span>
+            </Link>
+          )}
         </nav>
       </div>
     </header>

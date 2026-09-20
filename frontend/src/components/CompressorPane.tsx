@@ -5,10 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { compressContent, compressFile, verifyCompression, runSurgeon, type CompressResponse, type VerifyResponse } from "@/lib/api";
 import StatsCard from "./StatsCard";
 import ProofPane from "./ProofPane";
+import { useSettings } from "@/lib/SettingsContext";
 
 type ContentType = "auto" | "code" | "text" | "json" | "debug" | "file";
 
 export default function CompressorPane() {
+  const { features } = useSettings();
   const [input, setInput] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<CompressResponse | null>(null);
@@ -101,8 +103,8 @@ export default function CompressorPane() {
     { value: "code", label: "Code", icon: "💻" },
     { value: "text", label: "Text", icon: "📝" },
     { value: "json", label: "JSON", icon: "📦" },
-    { value: "debug", label: "Debug (AST)", icon: "🔬" },
-    { value: "file", label: "File", icon: "📄" },
+    ...(features.enableDebugMode ? [{ value: "debug" as ContentType, label: "Debug (AST)", icon: "🔬" }] : []),
+    ...(features.enableFileMode ? [{ value: "file" as ContentType, label: "File", icon: "📄" }] : []),
   ];
 
   return (
