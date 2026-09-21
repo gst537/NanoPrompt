@@ -153,7 +153,7 @@ async def compress_file(file: UploadFile = File(...), db: AsyncSession = Depends
 # ─── Proof Engine Endpoint ───────────────────────────────────────────────────
 
 @router.post("/verify")
-async def verify_compression(request: Dict[str, str]):
+def verify_compression(request: Dict[str, str]):
     """
     Runs original and compressed prompts through Groq to verify semantic equivalence.
     Body expects: {"original": "...", "compressed": "..."}
@@ -174,7 +174,7 @@ async def verify_compression(request: Dict[str, str]):
 
 
 @router.post("/ablation", response_model=AblationResponse)
-async def ablation_endpoint(request: AblationRequest):
+def ablation_endpoint(request: AblationRequest):
     """
     Run the text through an ablation study to test each module's savings.
     """
@@ -185,7 +185,7 @@ async def ablation_endpoint(request: AblationRequest):
     return AblationResponse(results=results)
 
 @router.post("/surgeon", response_model=SurgeonResponse)
-async def surgeon_endpoint(request: SurgeonRequest):
+def surgeon_endpoint(request: SurgeonRequest):
     """
     Extract AST slice based on stack trace.
     """
