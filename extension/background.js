@@ -1,6 +1,18 @@
 // NanoPrompt Background Service Worker
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "HEATMAP") {
+    fetch("http://localhost:8000/api/v1/heatmap", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: request.text })
+    })
+    .then(r => r.json())
+    .then(data => sendResponse({ success: true, data: data }))
+    .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
   if (request.action === "COMPRESS") {
     // Perform the fetch request here to bypass mixed-content blocks
     // since the background script has its own security context.

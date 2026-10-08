@@ -4,9 +4,10 @@ API routes for NanoPrompt compression and statistics.
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 
-from app.db.database import get_db
+from app.db.database import get_db, get_sync_db
 from app.db.models import CompressionLog
 from app.models.schemas import (
     CompressRequest,
@@ -19,12 +20,18 @@ from app.models.schemas import (
     SurgeonResponse,
     AblationRequest,
     AblationResult,
-    AblationResponse
+    AblationResponse,
+    HeatmapRequest,
+    HeatmapResponse,
+    ComplexityRequest,
+    ComplexityResponse
 )
 from app.services.router import detect_content_type
 from app.services.code_compressor import compress_code
-from app.services.text_compressor import compress_text, compress_json, run_ablation_test
+from app.services.text_compressor import compress_text, compress_json, run_ablation_test, generate_heatmap
 from app.services.llm_compressor import run_proof_engine
+from app.services.complexity import analyze_complexity
+from app.services.similarity import calculate_similarity
 from app.services.token_counter import count_tokens, calculate_savings_usd, get_compression_ratio
 from app.services.surgeon import extract_error_slice, parse_stack_trace
 from app.services.file_extractor import extract_pdf, extract_docx
@@ -43,7 +50,7 @@ async def health_check():
 # ─── Compression Endpoint ────────────────────────────────────────────────────
 
 @router.post("/compress", response_model=CompressResponse)
-async def compress(request: CompressRequest, db: AsyncSession = Depends(get_db)):
+def compress(request: CompressRequest, db: Session = Depends(get_sync_db)):
     """
     Compress input text or code.
     """
@@ -80,7 +87,7 @@ async def compress(request: CompressRequest, db: AsyncSession = Depends(get_db))
         savings_usd=savings_usd,
     )
     db.add(log_entry)
-    await db.commit()
+    db.commit()
 
     return CompressResponse(
         compressed_text=compressed,
@@ -95,14 +102,14 @@ async def compress(request: CompressRequest, db: AsyncSession = Depends(get_db))
     )
 
 @router.post("/compress/file", response_model=CompressResponse)
-async def compress_file(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+def compress_file(file: UploadFile = File(...), db: Session = Depends(get_sync_db)):
     """
     Extract text from a PDF or DOCX file and compress it.
     """
     content_type = file.content_type
     filename = file.filename or ""
     
-    file_bytes = await file.read()
+    file_bytes = file.file.read()
     
     if content_type == "application/pdf" or filename.lower().endswith('.pdf'):
         raw_text, extracted_text = extract_pdf(file_bytes)
@@ -135,7 +142,7 @@ async def compress_file(file: UploadFile = File(...), db: AsyncSession = Depends
         savings_usd=savings_usd,
     )
     db.add(log_entry)
-    await db.commit()
+    db.commit()
 
     return CompressResponse(
         compressed_text=compressed,
@@ -166,10 +173,16 @@ def verify_compression(request: Dict[str, str]):
         
     ans_orig, ans_comp = run_proof_engine(original, compressed)
     
+    # Quantitative Proof Engine
+    score = calculate_similarity(ans_orig, ans_comp)
+    percentage = round(score * 100, 2)
+    
     return {
         "original_answer": ans_orig,
         "compressed_answer": ans_comp,
-        "is_equivalent": None # Could add LLM judge here later
+        "is_equivalent": percentage >= 90.0,
+        "similarity_score": score,
+        "similarity_percentage": f"{percentage}%"
     }
 
 
@@ -195,6 +208,28 @@ def surgeon_endpoint(request: SurgeonRequest):
         
     sliced_code = extract_error_slice(request.code, target_line)
     return SurgeonResponse(sliced_code=sliced_code, target_line=target_line)
+
+@router.post("/heatmap", response_model=HeatmapResponse)
+def heatmap_endpoint(request: HeatmapRequest):
+    """
+    Generates a token attention heatmap for the given text.
+    """
+    if not request.content.strip():
+        raise HTTPException(status_code=400, detail="Content cannot be empty")
+        
+    tokens = generate_heatmap(request.content)
+    return HeatmapResponse(tokens=tokens)
+
+@router.post("/analyze_complexity", response_model=ComplexityResponse)
+def analyze_complexity_endpoint(request: ComplexityRequest):
+    """
+    Analyzes syntactic density to predict complexity and suggest a model.
+    """
+    if not request.content.strip():
+        raise HTTPException(status_code=400, detail="Content cannot be empty")
+        
+    result = analyze_complexity(request.content)
+    return ComplexityResponse(**result)
 
 # ─── Statistics Endpoints ────────────────────────────────────────────────────
 

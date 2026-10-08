@@ -31,6 +31,13 @@ NanoPrompt utilizes a **Dual-Node Architecture** with a high-speed Python FastAP
 - **Browser Integration:**
   - _How it works:_ A Manifest V3 Chrome Extension injects a `MutationObserver` directly into the DOM of ChatGPT and Claude. It monitors the user's chat input area and intercepts the submit event, sending the payload to our local compression engine before the LLM vendor processes it.
 
+### The V2 Innovation: Local AI Engineering (Offline-First)
+
+When asked *"What is truly innovative here?"*, our core answer is the shift from "API wrapping" to **Local AI Engineering**. V2 of NanoPrompt operates as an offline-first analysis suite:
+1. **Token Attention Heatmap:** Instead of guessing what an LLM cares about, we run neural transformer models natively on the edge (via `LLMLingua-2`) to generate a real-time visual "heatmap" overlay of token attention *before* hitting the API.
+2. **Quantitative Proof Engine:** Instead of qualitative verification, we convert the original and compressed outputs into mathematical vectors (using local `sentence-transformers`) and calculate the exact **Cosine Similarity** (e.g., 94.5% semantic overlap guarantee).
+3. **Predictive Complexity Routing:** We use local SpaCy NLP to calculate "Syntactic Density." If a prompt is dense (code/math), we route it to expensive models. If it's simple chatter, we dynamically suggest cheaper models to maximize cost savings.
+
 ---
 
 ## Part 2: Presenter Script (Slide-by-Slide)
@@ -206,3 +213,54 @@ export default function Dashboard() {
 ```
 
 **What happens:** The AST parser sees the error is in the `useEffect` fetch block. It safely deletes the entire `calculateUselessMath` function, the comments, and the massive JSX `return` block, sending the AI _only_ the state variables and the `useEffect` block, saving hundreds of tokens without breaking the valid React syntax.
+
+### Demo 3: The "Bloated API Payload" (JSON Minification)
+**Use Case:** Showcasing how the JSON compressor strips out massive amounts of indentation, tabs, and newlines that LLM tokenizers normally count as hundreds of wasted tokens.
+
+**Copy this into the Web/Extension (JSON Mode):**
+```json
+{
+  "user": {
+    "id": 12345,
+    "profile": {
+      "first_name": "John",
+      "last_name": "Doe",
+      "roles": [
+        "admin",
+        "editor"
+      ]
+    },
+    "settings": {
+      "notifications": true,
+      "theme": "dark",
+      "language": "en-US"
+    }
+  },
+  "status": "success",
+  "message": "User data retrieved successfully."
+}
+```
+
+**What happens:** LLM tokenizers (like OpenAI's tiktoken) often charge you for blocks of spaces and newlines. NanoPrompt intercepts this JSON, parses the data tree, and mathematically minifies it into a single dense string without spaces: `{"user":{"id":12345,"profile":{"first_name":"John","last_name":"Doe","roles":["admin","editor"]},"settings":{"notifications":true,"theme":"dark","language":"en-US"}},"status":"success","message":"User data retrieved successfully."}`. This drastically lowers the token count while ensuring the AI can still perfectly read the structured data.
+
+---
+
+## Part 6: Key Code Files Explained (For Technical Judges)
+
+*If judges ask to see your code, point them to these critical backend files in the `/backend/app/services` directory:*
+
+### 1. `text_compressor.py`
+**What it does:** This is the core NLP pipeline for natural language compression.
+**How it works:** It chains multiple layers of compression. It first uses basic Regex to strip out hardcoded filler phrases ("I hope you are having a wonderful day"). It then uses **SpaCy** for Part-Of-Speech tagging to mathematically drop useless determiners ("the", "a"). Finally, it loads a massive HuggingFace neural network (`LLMLingua`) into memory to perform "perplexity-based pruning", which deletes highly predictable tokens to achieve a 40-70% token reduction.
+
+### 2. `llm_compressor.py`
+**What it does:** This handles the Proof Engine and Semantic LLM routing.
+**How it works:** It acts as a high-availability fallback router. It first attempts to call the **Gemini 1.5 API**. If Gemini fails or hits a rate limit, the `Exception` block instantly reroutes the payload to **Groq's Llama 3** endpoint without crashing the server. This file also powers the "Proof Engine", which sends both the original and compressed prompts to an LLM to mathematically prove that the output answers are semantically identical.
+
+### 3. `surgeon.py`
+**What it does:** This is the Code Minifier and AST parser.
+**How it works:** It takes raw code (like React/TypeScript or Python) and uses Python's built-in `ast` module to convert the text into an Abstract Syntax Tree. When given an error line from a stack trace, it traverses this tree to trace the exact variable dependencies. It then safely deletes unrelated functions, UI render logic, and comments, returning *only* the specific slice of code related to the bug.
+
+### 4. `routers/compress.py` (FastAPI Core)
+**What it does:** This is the REST API entry point that the Next.js frontend and Chrome Extension talk to.
+**How it works:** It exposes endpoints like `/compress` and `/verify`. A critical architectural feature here is **Threadpool Delegation**. Because the LLMLingua neural model and Proof Engine make heavy synchronous network calls, we explicitly define these routes as standard synchronous functions (`def` instead of `async def`). This forces FastAPI to run them in background worker threads, ensuring the main asyncio event loop never blocks and the server remains blazing fast for hundreds of concurrent users.

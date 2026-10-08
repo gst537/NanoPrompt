@@ -29,6 +29,21 @@ async function compressText(text, type, apiUrl) {
   });
 }
 
+async function getHeatmap(text) {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({
+      action: "HEATMAP",
+      text: text
+    }, (response) => {
+      if (response && response.success) {
+        resolve(response.data.tokens);
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
+
 // Store the original text to allow undo
 let originalTextCache = "";
 let lastCompressedText = "";
@@ -87,7 +102,11 @@ function injectUI() {
       });
     },
     // onUndoClick
-    () => {
+    (clearOverlayOnly) => {
+      const existingOverlay = inputBox.parentElement.querySelector('.nanoprompt-ghost-overlay');
+      if (existingOverlay) existingOverlay.remove();
+      if (clearOverlayOnly === true) return;
+
       if (!originalTextCache) return;
       
       inputBox.focus();
@@ -100,6 +119,40 @@ function injectUI() {
       }
       
       originalTextCache = ""; // Clear cache after undo
+    },
+    // onHeatmapClick
+    async () => {
+      const currentText = inputBox.tagName.toLowerCase() === 'textarea' ? inputBox.value : inputBox.innerText;
+      if (!currentText.trim()) return false;
+      
+      const tokens = await getHeatmap(currentText);
+      if (!tokens) return false;
+      
+      const existingOverlay = inputBox.parentElement.querySelector('.nanoprompt-ghost-overlay');
+      if (existingOverlay) existingOverlay.remove();
+
+      const overlay = document.createElement('div');
+      overlay.className = 'nanoprompt-ghost-overlay';
+      
+      const styles = window.getComputedStyle(inputBox);
+      overlay.style.padding = styles.padding;
+      overlay.style.fontFamily = styles.fontFamily;
+      overlay.style.fontSize = styles.fontSize;
+      overlay.style.lineHeight = styles.lineHeight;
+      overlay.style.letterSpacing = styles.letterSpacing;
+      
+      tokens.forEach(t => {
+        const span = document.createElement('span');
+        span.textContent = t.word;
+        const weight = t.weight;
+        const r = Math.round(255 * (1 - weight));
+        const g = Math.round(255 * weight);
+        span.style.backgroundColor = `rgba(${r}, ${g}, 0, 0.4)`;
+        overlay.appendChild(span);
+      });
+
+      inputBox.parentElement.appendChild(overlay);
+      return true;
     }
   );
 

@@ -97,3 +97,21 @@ class AblationResponse(BaseModel):
     """Response containing multiple ablation results."""
     results: list[AblationResult]
 
+class HeatmapRequest(BaseModel):
+    content: str = Field(..., description="Text to analyze for heatmap")
+
+class HeatmapToken(BaseModel):
+    word: str
+    weight: float
+
+class HeatmapResponse(BaseModel):
+    tokens: list[HeatmapToken]
+
+class ComplexityRequest(BaseModel):
+    content: str
+
+class ComplexityResponse(BaseModel):
+    density_score: float
+    suggested_model: str
+    reason: str
+

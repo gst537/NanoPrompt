@@ -138,3 +138,43 @@ export async function runSurgeon(code: string, trace: string): Promise<SurgeonRe
 
   return res.json();
 }
+
+export interface HeatmapToken {
+  word: string;
+  weight: number;
+}
+export interface HeatmapResponse {
+  tokens: HeatmapToken[];
+}
+
+export async function generateHeatmap(content: string): Promise<HeatmapResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/heatmap`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Heatmap failed" }));
+    throw new Error(err.detail || "Heatmap failed");
+  }
+  return res.json();
+}
+
+export interface ComplexityResponse {
+  density_score: number;
+  suggested_model: string;
+  reason: string;
+}
+
+export async function analyzeComplexity(content: string): Promise<ComplexityResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/analyze_complexity`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Complexity analysis failed" }));
+    throw new Error(err.detail || "Complexity analysis failed");
+  }
+  return res.json();
+}

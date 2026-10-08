@@ -113,3 +113,31 @@
   color: #ccff00;
   font-weight: 700;
 }
+
+.nanoprompt-heatmap-btn {
+  background-color: transparent;
+  color: #ccff00;
+  border: 1px solid #ccff00;
+}
+.nanoprompt-heatmap-btn:hover {
+  background-color: #ccff00;
+  color: #0a0c10;
+}
+
+.nanoprompt-ghost-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  pointer-events: none;
+  color: transparent;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: hidden;
+  background-color: transparent;
+}
+.nanoprompt-ghost-overlay span {
+  border-radius: 2px;
+}

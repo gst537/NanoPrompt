@@ -58,7 +58,7 @@ def semantic_compress(text: str) -> str:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": text}
                 ],
-                model="llama-3.1-8b-instant",
+                model="llama3-8b-8192",
                 temperature=0.0,
                 max_tokens=2048,
             )
@@ -109,7 +109,7 @@ def run_proof_engine(original_prompt: str, compressed_prompt: str) -> tuple[str,
         try:
             res_orig = groq_client.chat.completions.create(
                 messages=[{"role": "user", "content": original_prompt}],
-                model="llama-3.1-8b-instant",
+                model="llama3-8b-8192",
                 temperature=0.0,
                 max_tokens=8192,
             )
@@ -117,7 +117,7 @@ def run_proof_engine(original_prompt: str, compressed_prompt: str) -> tuple[str,
             
             res_comp = groq_client.chat.completions.create(
                 messages=[{"role": "user", "content": compressed_prompt}],
-                model="llama-3.1-8b-instant",
+                model="llama3-8b-8192",
                 temperature=0.0,
                 max_tokens=8192,
             )

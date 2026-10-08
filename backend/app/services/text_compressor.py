@@ -281,3 +281,60 @@ def run_ablation_test(content: str) -> list[dict]:
     evaluate("NanoPrompt (All)", full_compressed)
     
     return results
+
+def generate_heatmap(content: str) -> list[dict]:
+    """
+    Generates a token attention heatmap.
+    Uses LLMLingua-2 to assign importance weights to tokens based on prediction.
+    Falls back to SpaCy heuristic if LLMLingua is unavailable.
+    """
+    if HAS_LLMLINGUA:
+        try:
+            # Get LLMLingua predictions with return_word_label
+            res = llm_compressor.compress_prompt(content, rate=0.5, return_word_label=True)
+            labeled_prompt = res.get('fn_labeled_original_prompt', '')
+            if labeled_prompt:
+                tokens = []
+                # format: "word label\t\t|\t\tword label\t\t|\t\t..."
+                parts = labeled_prompt.split('\t\t|\t\t')
+                for part in parts:
+                    if not part.strip(): continue
+                    # Split on the last space to get the word and label
+                    # Example: "Hello 1"
+                    if ' ' in part:
+                        last_space = part.rindex(' ')
+                        word = part[:last_space]
+                        label = part[last_space+1:]
+                        weight = 0.9 if label == '1' else 0.2
+                        tokens.append({"word": word + " ", "weight": weight})
+                    else:
+                        tokens.append({"word": part + " ", "weight": 0.5})
+                return tokens
+        except Exception as e:
+            print(f"Heatmap LLMLingua fallback to SpaCy: {e}")
+
+    if not HAS_SPACY:
+        return [{"word": w + " ", "weight": 0.5} for w in content.split()]
+        
+    doc = nlp(content)
+    tokens = []
+    
+    for token in doc:
+        # High importance
+        if token.pos_ in ["VERB", "NOUN", "PROPN", "NUM", "SYM"]:
+            weight = 0.9
+        # Medium importance
+        elif token.pos_ in ["ADJ", "ADV", "PRON"]:
+            weight = 0.6
+        # Low importance
+        elif token.pos_ in ["DET", "ADP", "CCONJ", "PUNCT", "SPACE"]:
+            weight = 0.2
+        else:
+            weight = 0.5
+            
+        tokens.append({
+            "word": token.text_with_ws,
+            "weight": weight
+        })
+        
+    return tokens

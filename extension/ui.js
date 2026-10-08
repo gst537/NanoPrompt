@@ -1,6 +1,6 @@
 // NanoPrompt Chrome Extension UI Components
 
-function createNanoPromptUI(onCompressClick, onUndoClick) {
+function createNanoPromptUI(onCompressClick, onUndoClick, onHeatmapClick) {
   const container = document.createElement("div");
   container.className = "nanoprompt-container";
 
@@ -8,6 +8,24 @@ function createNanoPromptUI(onCompressClick, onUndoClick) {
   const toast = document.createElement("div");
   toast.className = "nanoprompt-toast";
   toast.innerHTML = `<span>⚡ SAVED:</span> <span class="nanoprompt-toast-saved">₹0.00 (0 TOKENS)</span>`;
+
+  // Heatmap Button
+  const heatmapBtn = document.createElement("button");
+  heatmapBtn.className = "nanoprompt-btn nanoprompt-heatmap-btn";
+  heatmapBtn.innerHTML = "👀 HEATMAP";
+  
+  heatmapBtn.addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (heatmapBtn.innerHTML.includes("CLEAR")) {
+      heatmapBtn.innerHTML = "👀 HEATMAP";
+      onUndoClick(true); // Clear overlay
+      return;
+    }
+    heatmapBtn.innerHTML = "LOADING...";
+    const success = await onHeatmapClick();
+    heatmapBtn.innerHTML = success ? "❌ CLEAR" : "👀 HEATMAP";
+  });
 
   // Type Selector Dropdown
   const select = document.createElement("select");
@@ -74,6 +92,7 @@ function createNanoPromptUI(onCompressClick, onUndoClick) {
   });
 
   container.appendChild(toast);
+  container.appendChild(heatmapBtn);
   container.appendChild(select);
   container.appendChild(btn);
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { compressContent, compressFile, verifyCompression, runSurgeon, type CompressResponse, type VerifyResponse } from "@/lib/api";
+import { compressContent, compressFile, verifyCompression, runSurgeon, generateHeatmap, analyzeComplexity, type CompressResponse, type VerifyResponse, type HeatmapResponse, type ComplexityResponse } from "@/lib/api";
 import StatsCard from "./StatsCard";
 import ProofPane from "./ProofPane";
 import { useSettings } from "@/lib/SettingsContext";
@@ -21,6 +21,11 @@ export default function CompressorPane() {
   const [proving, setProving] = useState(false);
   const [trace, setTrace] = useState(""); // Stack trace for debug mode
   const [surgeonResult, setSurgeonResult] = useState<{sliced_code: string, target_line: number} | null>(null);
+
+  const [heatmap, setHeatmap] = useState<HeatmapResponse | null>(null);
+  const [loadingHeatmap, setLoadingHeatmap] = useState(false);
+  const [complexity, setComplexity] = useState<ComplexityResponse | null>(null);
+  const [analyzingComplexity, setAnalyzingComplexity] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [contentType, setContentType] = useState<ContentType>("auto");
@@ -75,6 +80,34 @@ export default function CompressorPane() {
     }
   };
 
+  const handleHeatmap = async () => {
+    if (!input.trim()) return;
+    setLoadingHeatmap(true);
+    setError(null);
+    try {
+      const response = await generateHeatmap(input);
+      setHeatmap(response);
+    } catch (err: any) {
+      setError(err.message || "Heatmap failed");
+    } finally {
+      setLoadingHeatmap(false);
+    }
+  };
+
+  const handleComplexity = async () => {
+    if (!input.trim()) return;
+    setAnalyzingComplexity(true);
+    setError(null);
+    try {
+      const response = await analyzeComplexity(input);
+      setComplexity(response);
+    } catch (err: any) {
+      setError(err.message || "Complexity analysis failed");
+    } finally {
+      setAnalyzingComplexity(false);
+    }
+  };
+
   const handleCopy = async () => {
     if (surgeonResult) {
       await navigator.clipboard.writeText(surgeonResult.sliced_code);
@@ -95,6 +128,8 @@ export default function CompressorPane() {
     setResult(null);
     setSurgeonResult(null);
     setProof(null);
+    setHeatmap(null);
+    setComplexity(null);
     setError(null);
   };
 
@@ -269,6 +304,25 @@ export default function CompressorPane() {
           </button>
         )}
 
+        {input.trim() && contentType !== "file" && (
+          <>
+            <button
+              onClick={handleHeatmap}
+              disabled={loadingHeatmap}
+              className="px-6 py-3 rounded-none font-mono text-sm tracking-widest uppercase font-bold transition-all border bg-transparent border-orange-400 text-orange-400 hover:bg-orange-400/10 cursor-pointer"
+            >
+              {loadingHeatmap ? "LOADING..." : "🔥 HEATMAP"}
+            </button>
+            <button
+              onClick={handleComplexity}
+              disabled={analyzingComplexity}
+              className="px-6 py-3 rounded-none font-mono text-sm tracking-widest uppercase font-bold transition-all border bg-transparent border-purple-400 text-purple-400 hover:bg-purple-400/10 cursor-pointer"
+            >
+              {analyzingComplexity ? "ANALYZING..." : "🧠 ROUTING"}
+            </button>
+          </>
+        )}
+
         <button
           onClick={handleClear}
           className="px-6 py-3 rounded-none border border-surfaceBorder bg-surfaceCardAlt text-textSecondary font-mono text-sm tracking-widest uppercase hover:border-textSecondary transition-all cursor-pointer"
@@ -340,6 +394,69 @@ export default function CompressorPane() {
       {/* Proof Engine Rendering */}
       <AnimatePresence>
         {proof && <ProofPane proof={proof} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {heatmap && (
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 20, opacity: 0 }}
+            className="p-8 border border-orange-500/30 bg-orange-950/10 mb-8 w-full rounded-sm"
+          >
+            <div className="mb-6 border-b border-orange-500/20 pb-4">
+              <h3 className="text-orange-400 font-mono font-bold mb-2 uppercase text-lg tracking-widest flex items-center gap-2">
+                <span>🔥</span> Token Attention Heatmap
+              </h3>
+              <p className="text-textMuted font-mono text-sm leading-relaxed max-w-3xl">
+                This visualizes how the AI "reads" your prompt before compression. Tokens highlighted in bright orange have high information entropy (meaning they are critical for the AI to understand your request). Tokens with dark backgrounds are highly predictable or conversational fluff, meaning they can be safely deleted to save API costs without degrading the output quality.
+              </p>
+            </div>
+            
+            <div className="flex flex-wrap gap-2.5 font-mono text-sm">
+               {heatmap.tokens.map((t, i) => (
+                 <span key={i} className="px-2 py-1 rounded shadow-sm transition-colors" style={{ backgroundColor: `rgba(255, 165, 0, ${t.weight})`, color: t.weight > 0.5 ? '#000000' : 'var(--text-secondary)' }}>
+                   {t.word.trim() || "\u00A0"}
+                 </span>
+               ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {complexity && (
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 20, opacity: 0 }}
+            className="p-8 border border-purple-500/30 bg-purple-950/10 mb-8 w-full rounded-sm"
+          >
+            <div className="mb-6 border-b border-purple-500/20 pb-4">
+              <h3 className="text-purple-400 font-mono font-bold mb-2 uppercase text-lg tracking-widest flex items-center gap-2">
+                <span>🧠</span> Predictive Routing
+              </h3>
+              <p className="text-textMuted font-mono text-sm leading-relaxed max-w-3xl">
+                Instead of sending every request to an expensive flagship model, NanoPrompt analyzes your prompt's "syntactic density". If it detects complex code or highly dense logical instructions, it routes to a powerful model (like Gemini 1.5 Pro). If it detects simple chatter, it dynamically routes to a faster, cheaper model (like Llama 3) to maximize your cost ROI.
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-mono">
+              <div className="p-6 bg-obsidianBg border border-purple-500/20 rounded-sm hover:border-purple-500/50 transition-colors">
+                <div className="text-[11px] uppercase text-purple-400 tracking-widest mb-3 flex items-center gap-2"><span>📊</span> Density Score</div>
+                <div className="text-3xl font-bold text-white">{complexity.density_score}</div>
+              </div>
+              <div className="p-6 bg-obsidianBg border border-purple-500/20 rounded-sm hover:border-purple-500/50 transition-colors">
+                <div className="text-[11px] uppercase text-purple-400 tracking-widest mb-3 flex items-center gap-2"><span>🎯</span> Suggested Model</div>
+                <div className="text-xl font-bold text-acid">{complexity.suggested_model}</div>
+              </div>
+              <div className="p-6 bg-obsidianBg border border-purple-500/20 rounded-sm hover:border-purple-500/50 transition-colors">
+                <div className="text-[11px] uppercase text-purple-400 tracking-widest mb-3 flex items-center gap-2"><span>💡</span> Reasoning</div>
+                <div className="text-sm text-textMuted leading-relaxed">{complexity.reason}</div>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
