@@ -7,21 +7,30 @@ import re
 import json
 
 try:
-    from llmlingua import PromptCompressor
-    print("Loading LLMLingua model (this may take a moment)...")
-    llm_compressor = PromptCompressor(
-        model_name="microsoft/llmlingua-2-xlm-roberta-large-meetingbank",
-        use_llmlingua2=True,
-        device_map="cpu"
-    )
+    import llmlingua
     HAS_LLMLINGUA = True
-    print("LLMLingua loaded successfully!")
 except ImportError:
     HAS_LLMLINGUA = False
     print("LLMLingua not installed. Falling back to SpaCy.")
-except Exception as e:
-    HAS_LLMLINGUA = False
-    print(f"Failed to load LLMLingua model: {e}")
+
+_llm_compressor = None
+
+def get_llm_compressor():
+    global _llm_compressor
+    if _llm_compressor is None and HAS_LLMLINGUA:
+        try:
+            from llmlingua import PromptCompressor
+            print("Loading LLMLingua model (this may take a moment)...")
+            _llm_compressor = PromptCompressor(
+                model_name="microsoft/llmlingua-2-xlm-roberta-large-meetingbank",
+                use_llmlingua2=True,
+                device_map="cpu"
+            )
+            print("LLMLingua loaded successfully!")
+        except Exception as e:
+            print(f"Failed to load LLMLingua model: {e}")
+            return None
+    return _llm_compressor
 
 try:
     import spacy
@@ -70,12 +79,28 @@ FILLER_PHRASES = [
     r"\bhello\b",
     r"\bI hope you are having a wonderful day so far\b",
     r"\bI hope you are having a wonderful day\b",
+    r"\bI am currently working on a very important project for my university class tomorrow\b",
     r"\bI am currently working on a very important computer science assignment for my university class\b",
     r"\bI am currently working on a very important assignment\b",
+    r"\bI am currently working on a very important project\b",
+    r"\bfor my university class tomorrow\b",
+    r"\bfor my university class\b",
+    r"\band I was wondering if you could please do me a huge favor and help me out\b",
+    r"\bI was wondering if you could please do me a huge favor and help me out\b",
+    r"\bdo me a huge favor and help me out\b",
     r"\band I was wondering if you could please help me out with it\b",
     r"\bI was wondering if you could please help me out with it\b",
     r"\bI was wondering if you could please help me\b",
+    r"\bBasically, what I need you to do is to\b",
+    r"\bBasically what I need you to do is to\b",
+    r"\bwhat I need you to do is to\b",
+    r"\bwhat I need you to do is\b",
     r"\bI need you to\b",
+    r"\bI would really appreciate it if you could ensure that\b",
+    r"\bI would really appreciate it if you could\b",
+    r"\bensure that your response is\b",
+    r"\bensure that you\b",
+    r"\bmake sure that your response is\b",
     r"\bBut here is the specific catch\b",
     r"\bhere is the specific catch\b",
     r"\bplease make sure\b",
@@ -84,8 +109,12 @@ FILLER_PHRASES = [
     r"\bAlso, if you wouldn't mind\b",
     r"\bif you wouldn't mind\b",
     r"\bcould you please\b",
+    r"\bThank you so much for your time and all your assistance in this matter!\b",
+    r"\bThank you so much for your time and all your assistance in this matter\b",
     r"\bThank you so much in advance for your time and assistance\b",
     r"\bThank you so much in advance for your time\b",
+    r"\bfor your time and all your assistance in this matter\b",
+    r"\ball your assistance in this matter\b",
     r"\bThank you so much\b",
     r"\bI really appreciate it\b",
     r"\bplease\b",
@@ -143,10 +172,11 @@ def compress_text(content: str) -> str:
     result = apply_spacy_pruning(result)
 
     # 2. Feed the pre-cleaned text into the Neural Model for deep semantic pruning
-    if HAS_LLMLINGUA:
+    compressor = get_llm_compressor() if HAS_LLMLINGUA else None
+    if compressor:
         try:
             # RATE CONTROL: 0.7 preserves grammar and human prose (drops 30% of tokens)
-            llm_results = llm_compressor.compress_prompt(result, rate=0.7, force_tokens=['\n'])
+            llm_results = compressor.compress_prompt(result, rate=0.7, force_tokens=['\n'])
             compressed = llm_results.get('compressed_prompt', result)
             
             # 3. Final technical abbreviations & whitespace cleanup
@@ -268,9 +298,10 @@ def run_ablation_test(content: str) -> list[dict]:
         evaluate("SpaCy NLP", spacy_only)
     
     # 4. LLMLingua Only
-    if HAS_LLMLINGUA:
+    compressor = get_llm_compressor() if HAS_LLMLINGUA else None
+    if compressor:
         try:
-            llm_results = llm_compressor.compress_prompt(content, rate=0.7, force_tokens=['\n'])
+            llm_results = compressor.compress_prompt(content, rate=0.7, force_tokens=['\n'])
             llm_only = llm_results.get('compressed_prompt', content)
             evaluate("LLMLingua (Neural)", llm_only)
         except Exception:
@@ -284,57 +315,59 @@ def run_ablation_test(content: str) -> list[dict]:
 
 def generate_heatmap(content: str) -> list[dict]:
     """
-    Generates a token attention heatmap.
-    Uses LLMLingua-2 to assign importance weights to tokens based on prediction.
-    Falls back to SpaCy heuristic if LLMLingua is unavailable.
+    Generates an exact-boundary token attention heatmap.
+    Preserves exact whitespace and punctuation so ghost overlays in LLM chat UIs align 1:1.
+    Accurately classifies conversational filler (greetings, polite fluff, boilerplate)
+    as low-entropy/prunable (0.2) and critical domain verbs/nouns as high-entropy (0.9).
     """
-    if HAS_LLMLINGUA:
-        try:
-            # Get LLMLingua predictions with return_word_label
-            res = llm_compressor.compress_prompt(content, rate=0.5, return_word_label=True)
-            labeled_prompt = res.get('fn_labeled_original_prompt', '')
-            if labeled_prompt:
-                tokens = []
-                # format: "word label\t\t|\t\tword label\t\t|\t\t..."
-                parts = labeled_prompt.split('\t\t|\t\t')
-                for part in parts:
-                    if not part.strip(): continue
-                    # Split on the last space to get the word and label
-                    # Example: "Hello 1"
-                    if ' ' in part:
-                        last_space = part.rindex(' ')
-                        word = part[:last_space]
-                        label = part[last_space+1:]
-                        weight = 0.9 if label == '1' else 0.2
-                        tokens.append({"word": word + " ", "weight": weight})
-                    else:
-                        tokens.append({"word": part + " ", "weight": 0.5})
-                return tokens
-        except Exception as e:
-            print(f"Heatmap LLMLingua fallback to SpaCy: {e}")
+    if not content.strip():
+        return []
 
     if not HAS_SPACY:
         return [{"word": w + " ", "weight": 0.5} for w in content.split()]
-        
+
+    # Collect conversational filler phrase patterns
+    fluff_patterns = [
+        r"\bhello(?:\s+there|\s+ai)?[,.]*",
+        r"\bhi(?:\s+there|\s+ai)?[,.]*",
+        r"\b(?:i\s+)?hope\s+you\s+are\s+having\b.*?[!.]",
+        r"\bi\s+(?:am\s+)?currently\s+working\s+on\b.*?[,.]",
+        r"\b(?:and\s+)?i\s+was\s+wondering\s+if\s+you\s+could\b.*?help\s+me\s+out[.!,]*",
+        r"\bbasically,?\s+(?:what\s+i\s+need\s+you\s+to\s+do\s+is\s+to\b|what\s+i\s+need\b)",
+        r"\bi\s+would\s+(?:really\s+)?appreciate\s+it\s+if\s+you\s+could\b",
+        r"\bensure\s+that\s+your\s+response\s+is\b",
+        r"\bthank\s+you\s+so\s+much\b.*?[!.]",
+        r"\bplease\b",
+        r"\bkindly\b",
+    ] + list(FILLER_PHRASES)
+
+    filler_indices = set()
+    for pat in fluff_patterns:
+        for m in re.finditer(pat, content, re.IGNORECASE):
+            for idx in range(m.start(), m.end()):
+                filler_indices.add(idx)
+
     doc = nlp(content)
     tokens = []
-    
-    for token in doc:
-        # High importance
-        if token.pos_ in ["VERB", "NOUN", "PROPN", "NUM", "SYM"]:
-            weight = 0.9
-        # Medium importance
-        elif token.pos_ in ["ADJ", "ADV", "PRON"]:
-            weight = 0.6
-        # Low importance
-        elif token.pos_ in ["DET", "ADP", "CCONJ", "PUNCT", "SPACE"]:
+
+    for t in doc:
+        # Check if this token falls inside any detected conversational filler span
+        is_filler = any(idx in filler_indices for idx in range(t.idx, t.idx + len(t.text)))
+
+        if is_filler:
             weight = 0.2
+        elif t.is_stop or t.pos_ in ["DET", "ADP", "CCONJ", "PUNCT", "SPACE", "PRON", "AUX", "PART"]:
+            weight = 0.2
+        elif t.pos_ in ["NOUN", "PROPN", "VERB", "NUM", "SYM"]:
+            weight = 0.9
+        elif t.pos_ in ["ADJ", "ADV"]:
+            weight = 0.8
         else:
-            weight = 0.5
-            
+            weight = 0.3
+
         tokens.append({
-            "word": token.text_with_ws,
+            "word": t.text_with_ws,
             "weight": weight
         })
-        
+
     return tokens

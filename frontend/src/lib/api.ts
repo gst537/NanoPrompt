@@ -18,6 +18,8 @@ export interface VerifyResponse {
   original_answer: string;
   compressed_answer: string;
   is_equivalent: boolean | null;
+  similarity_score?: number;
+  similarity_percentage?: string;
 }
 
 export interface AggregateStats {

@@ -5,17 +5,27 @@ Local Semantic Similarity engine for Quantitative Proof.
 import numpy as np
 
 try:
-    from sentence_transformers import SentenceTransformer
-    print("Loading sentence-transformers model (all-MiniLM-L6-v2) for Proof Engine...")
-    model = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
+    # Just check if it's available without loading the heavy model yet
+    import sentence_transformers
     HAS_SENTENCE_TRANSFORMERS = True
-    print("sentence-transformers loaded successfully!")
 except ImportError:
     HAS_SENTENCE_TRANSFORMERS = False
     print("sentence-transformers not installed. Similarity scoring disabled.")
-except Exception as e:
-    HAS_SENTENCE_TRANSFORMERS = False
-    print(f"Failed to load sentence-transformers: {e}")
+
+_model = None
+
+def get_similarity_model():
+    global _model
+    if _model is None and HAS_SENTENCE_TRANSFORMERS:
+        try:
+            from sentence_transformers import SentenceTransformer
+            print("Loading sentence-transformers model (all-MiniLM-L6-v2) for Proof Engine...")
+            _model = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
+            print("sentence-transformers loaded successfully!")
+        except Exception as e:
+            print(f"Failed to load sentence-transformers: {e}")
+            return None
+    return _model
 
 def calculate_similarity(text1: str, text2: str) -> float:
     """
@@ -23,6 +33,10 @@ def calculate_similarity(text1: str, text2: str) -> float:
     Returns a float between 0.0 and 1.0 representing percentage overlap.
     """
     if not HAS_SENTENCE_TRANSFORMERS:
+        return 0.0
+        
+    model = get_similarity_model()
+    if not model:
         return 0.0
     
     # Get embeddings

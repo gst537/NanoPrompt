@@ -41,6 +41,19 @@ export default function ProofPane({ proof }: ProofPaneProps) {
     h3: ({ children }: any) => <h3 className="text-base font-bold mb-2 text-textPrimary">{children}</h3>,
   };
 
+  // Determine color based on similarity score (0.0 to 1.0)
+  const score = proof.similarity_score ?? 1.0;
+  let badgeColor = "bg-acid/10 border-acid text-acid";
+  let accuracyText = "IDENTICAL LOGIC";
+  
+  if (score < 0.90) {
+    badgeColor = "bg-red-500/10 border-red-500 text-red-500";
+    accuracyText = "SEMANTIC DRIFT DETECTED";
+  } else if (score < 0.95) {
+    badgeColor = "bg-yellow-500/10 border-yellow-500 text-yellow-500";
+    accuracyText = "HIGHLY ACCURATE";
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -75,12 +88,17 @@ export default function ProofPane({ proof }: ProofPaneProps) {
         {/* Compressed Pane */}
         <div className="bg-codeBg border border-acid flex flex-col relative shadow-[0_0_20px_rgba(204,255,0,0.05)]">
           <div className="px-4 py-3 bg-surfaceCard hairline-b flex justify-between items-center">
-            <span className="text-[11px] font-mono font-semibold text-acid uppercase tracking-widest">
+            <span className={`text-[11px] font-mono font-semibold uppercase tracking-widest ${badgeColor.split(' ')[2]}`}>
               NanoPrompt Output (Optimized)
             </span>
-            <span className="text-[9px] font-mono font-semibold text-acid uppercase tracking-widest px-2 py-0.5 border border-acid bg-acid/10">
-              IDENTICAL LOGIC
-            </span>
+            <div className="flex gap-2 items-center">
+              <span className={`text-[9px] font-mono font-semibold uppercase tracking-widest px-2 py-0.5 border ${badgeColor}`}>
+                ACCURACY: {proof.similarity_percentage}
+              </span>
+              <span className={`text-[9px] font-mono font-semibold uppercase tracking-widest px-2 py-0.5 border ${badgeColor}`}>
+                {accuracyText}
+              </span>
+            </div>
           </div>
           <div className="w-full h-96 p-6 font-mono text-sm leading-relaxed overflow-y-auto break-words custom-scrollbar text-textPrimary">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>

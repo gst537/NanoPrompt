@@ -22,7 +22,7 @@ def run_gemini_ocr(image_bytes: bytes) -> str:
         )
 
         response = client.models.generate_content(
-            model='gemini-3.6-flash',
+            model='gemini-1.5-flash',
             contents=[system_prompt, pil_image],
             config=types.GenerateContentConfig(temperature=0.0)
         )
@@ -46,17 +46,29 @@ def extract_pdf(file_bytes: bytes) -> tuple[str, str]:
             
             # 1. Extract Images via Gemini OCR
             image_list = page.get_images()
-            for img in image_list:
+            
+            import concurrent.futures
+            
+            def process_image(img):
                 xref = img[0]
                 pix = fitz.Pixmap(doc, xref)
+                # Ignore small images (e.g. icons, logos, bullets)
+                if pix.width < 150 or pix.height < 150:
+                    return None
                 # If image is CMYK or has alpha, convert to RGB for PIL compatibility
                 if pix.n - pix.alpha > 3:
                     pix = fitz.Pixmap(fitz.csRGB, pix)
                 
                 img_bytes = pix.tobytes("png")
                 ocr_text = run_gemini_ocr(img_bytes)
-                text_blocks.append(f"\n[Embedded Diagram/Image: {ocr_text}]\n")
                 pix = None
+                return f"\n[Embedded Diagram/Image: {ocr_text}]\n"
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                results = executor.map(process_image, image_list)
+                for res in results:
+                    if res:
+                        text_blocks.append(res)
 
             # 2. Extract Text Blocks for Markdown
             blocks = page.get_text("blocks")

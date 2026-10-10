@@ -353,7 +353,7 @@ export default function CompressorPane() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 20, opacity: 0 }}
             transition={{ duration: 0.5 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-4"
+            className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
           >
             <StatsCard
               icon="SAVED"

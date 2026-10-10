@@ -29,12 +29,29 @@ class DefinitionVisitor(ast.NodeVisitor):
         self.max_line = max_line
         self.definition_lines = set()
         
+    def visit_AnnAssign(self, node):
+        if hasattr(node, 'lineno') and node.lineno < self.max_line:
+            if isinstance(node.target, ast.Name) and node.target.id in self.target_vars:
+                self._add_lines(node)
+        self.generic_visit(node)
+        
+    def visit_AugAssign(self, node):
+        if hasattr(node, 'lineno') and node.lineno < self.max_line:
+            if isinstance(node.target, ast.Name) and node.target.id in self.target_vars:
+                self._add_lines(node)
+        self.generic_visit(node)
+
     def visit_Assign(self, node):
         if hasattr(node, 'lineno') and node.lineno < self.max_line:
             # Check if any target var is assigned here
             for target in node.targets:
                 if isinstance(target, ast.Name) and target.id in self.target_vars:
                     self._add_lines(node)
+                # Handle tuple unpacks e.g. a, b = func()
+                elif isinstance(target, (ast.Tuple, ast.List)):
+                    for elt in target.elts:
+                        if isinstance(elt, ast.Name) and elt.id in self.target_vars:
+                            self._add_lines(node)
         self.generic_visit(node)
         
     def visit_FunctionDef(self, node):
@@ -51,14 +68,20 @@ class DefinitionVisitor(ast.NodeVisitor):
         for i in range(start, end + 1):
             self.definition_lines.add(i)
 
-def parse_stack_trace(trace: str) -> int:
-    """Extract the lowest (most recent) line number from a stack trace."""
+def parse_stack_trace(trace: str, max_lines: int = 999999) -> int:
+    """Extract the lowest (most recent) line number from a stack trace that fits in our code."""
     # Find all "line X" or "Line X" in the stack trace
     matches = re.findall(r'line\s+(\d+)', trace, re.IGNORECASE)
     if not matches:
         return -1
-    # Typically the last line number in a traceback is the deepest frame (the actual error)
-    return int(matches[-1])
+    
+    # Iterate backwards from deepest frame up to highest frame
+    for match in reversed(matches):
+        line_num = int(match)
+        if line_num <= max_lines:
+            return line_num
+            
+    return -1
 
 def extract_error_slice(source_code: str, target_line: int) -> str:
     """

@@ -33,8 +33,7 @@ def calculate_savings_usd(original_tokens: int, compressed_tokens: int) -> float
         return 0.0
     # $2.50 USD per 1M tokens * 83.5 INR/USD = 208.75 INR per 1M tokens
     usd_savings = (tokens_saved / 1_000_000) * PRICE_PER_MILLION_TOKENS
-    inr_savings = usd_savings * 83.5
-    return round(inr_savings, 6)
+    return round(usd_savings, 6)
 
 
 def get_compression_ratio(original_tokens: int, compressed_tokens: int) -> float:

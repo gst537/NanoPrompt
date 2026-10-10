@@ -15,18 +15,18 @@ def analyze_complexity(text: str) -> dict:
     Returns a dict with 'density_score' and 'suggested_model'.
     """
     if not HAS_SPACY or not text.strip():
-        return {"density_score": 0.0, "suggested_model": "llama3-8b-8192", "reason": "No SpaCy available or empty text"}
+        return {"density_score": 0.0, "suggested_model": "gemini-3.8-flash-lite", "reason": "No SpaCy available or empty text"}
     
     # Check for code blocks
     code_blocks = text.count("```")
     if code_blocks >= 2:
-        return {"density_score": 1.0, "suggested_model": "gemini-3.6-flash", "reason": "Code block detected"}
+        return {"density_score": 1.0, "suggested_model": "gemini-3.8-flash", "reason": "Code block detected"}
         
     doc = nlp(text)
     total_tokens = len(doc)
     
     if total_tokens == 0:
-        return {"density_score": 0.0, "suggested_model": "llama3-8b-8192", "reason": "Empty text"}
+        return {"density_score": 0.0, "suggested_model": "gemini-3.8-flash-lite", "reason": "Empty text"}
         
     # Count nouns, proper nouns, and verbs
     dense_tokens = sum(1 for token in doc if token.pos_ in ["NOUN", "PROPN", "VERB", "SYM"])
@@ -34,9 +34,9 @@ def analyze_complexity(text: str) -> dict:
     
     # High density usually means complex, detailed instructions
     if density_score > 0.35: 
-        suggested_model = "gemini-3.6-flash"
+        suggested_model = "gemini-3.8-flash"
     else:
-        suggested_model = "llama3-8b-8192"
+        suggested_model = "gemini-3.8-flash-lite"
         
     return {
         "density_score": round(density_score, 2),

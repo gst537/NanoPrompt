@@ -3,11 +3,10 @@ API routes for NanoPrompt compression and statistics.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 
-from app.db.database import get_db, get_sync_db
+from app.db.database import get_sync_db
 from app.db.models import CompressionLog
 from app.models.schemas import (
     CompressRequest,
@@ -202,7 +201,8 @@ def surgeon_endpoint(request: SurgeonRequest):
     """
     Extract AST slice based on stack trace.
     """
-    target_line = parse_stack_trace(request.trace)
+    max_lines = len(request.code.split("\n"))
+    target_line = parse_stack_trace(request.trace, max_lines=max_lines)
     if target_line <= 0:
         raise HTTPException(status_code=400, detail="Could not parse line number from stack trace.")
         
@@ -234,9 +234,9 @@ def analyze_complexity_endpoint(request: ComplexityRequest):
 # ─── Statistics Endpoints ────────────────────────────────────────────────────
 
 @router.get("/stats", response_model=AggregateStats)
-async def get_stats(db: AsyncSession = Depends(get_db)):
+def get_stats(db: Session = Depends(get_sync_db)):
     """Get aggregate compression statistics."""
-    result = await db.execute(
+    result = db.execute(
         select(
             func.count(CompressionLog.id).label("total_compressions"),
             func.coalesce(func.sum(CompressionLog.original_tokens), 0).label("total_original_tokens"),
@@ -261,9 +261,9 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/history", response_model=List[CompressionLogResponse])
-async def get_history(limit: int = 20, db: AsyncSession = Depends(get_db)):
+def get_history(limit: int = 20, db: Session = Depends(get_sync_db)):
     """Get recent compression history."""
-    result = await db.execute(
+    result = db.execute(
         select(CompressionLog)
         .order_by(CompressionLog.created_at.desc())
         .limit(limit)

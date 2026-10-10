@@ -134,22 +134,79 @@ function injectUI() {
       const overlay = document.createElement('div');
       overlay.className = 'nanoprompt-ghost-overlay';
       
-      const styles = window.getComputedStyle(inputBox);
-      overlay.style.padding = styles.padding;
-      overlay.style.fontFamily = styles.fontFamily;
-      overlay.style.fontSize = styles.fontSize;
-      overlay.style.lineHeight = styles.lineHeight;
-      overlay.style.letterSpacing = styles.letterSpacing;
+      // Anchor directly to the rendered text element (Claude ProseMirror <p> or the input container)
+      const targetEl = inputBox.querySelector('p') || inputBox;
+      const rect = targetEl.getBoundingClientRect();
+      const parentRect = inputBox.parentElement.getBoundingClientRect();
+
+      overlay.style.position = 'absolute';
+      overlay.style.top = `${rect.top - parentRect.top}px`;
+      overlay.style.left = `${rect.left - parentRect.left}px`;
+      overlay.style.width = `${rect.width}px`;
+      overlay.style.height = `${rect.height}px`;
+      overlay.style.boxSizing = 'border-box';
+      overlay.style.margin = '0';
+
+      // Copy longhand computed styles directly to avoid empty shorthand bugs in Chrome
+      const cs = window.getComputedStyle(targetEl);
+      overlay.style.fontFamily = cs.fontFamily;
+      overlay.style.fontSize = cs.fontSize;
+      overlay.style.fontWeight = cs.fontWeight;
+      overlay.style.fontStyle = cs.fontStyle;
+      overlay.style.lineHeight = cs.lineHeight;
+      overlay.style.letterSpacing = cs.letterSpacing;
+      overlay.style.wordSpacing = cs.wordSpacing;
+      overlay.style.textAlign = cs.textAlign;
+      overlay.style.textIndent = cs.textIndent;
+      overlay.style.textTransform = cs.textTransform;
+      overlay.style.whiteSpace = cs.whiteSpace || 'pre-wrap';
+      overlay.style.wordBreak = cs.wordBreak || 'break-word';
+      overlay.style.overflowWrap = cs.overflowWrap || 'break-word';
+      overlay.style.paddingTop = cs.paddingTop;
+      overlay.style.paddingRight = cs.paddingRight;
+      overlay.style.paddingBottom = cs.paddingBottom;
+      overlay.style.paddingLeft = cs.paddingLeft;
       
       tokens.forEach(t => {
-        const span = document.createElement('span');
-        span.textContent = t.word;
-        const weight = t.weight;
-        const r = Math.round(255 * (1 - weight));
-        const g = Math.round(255 * weight);
-        span.style.backgroundColor = `rgba(${r}, ${g}, 0, 0.4)`;
-        overlay.appendChild(span);
+        const rawWord = t.word || '';
+        // Separate actual word text from trailing/leading whitespace so spaces aren't painted
+        const match = rawWord.match(/^(\s*)(.*?)(\s*)$/s);
+        const leadingWs = match ? match[1] : '';
+        const wordText = match ? match[2] : rawWord;
+        const trailingWs = match ? match[3] : '';
+
+        if (leadingWs) {
+          overlay.appendChild(document.createTextNode(leadingWs));
+        }
+
+        if (wordText) {
+          const weight = t.weight;
+          
+          if (weight >= 0.7) {
+            // Only highlight key signal words that the AI considers important (Clean Green)
+            const span = document.createElement('span');
+            span.textContent = wordText;
+            span.style.backgroundColor = 'rgba(34, 197, 94, 0.28)';
+            span.style.borderBottom = '2px solid rgba(34, 197, 94, 0.90)';
+            span.style.borderRadius = '3px';
+            span.style.padding = '0';
+            span.style.margin = '0';
+            overlay.appendChild(span);
+          } else {
+            // Conversational filler, stop words, and syntax are left unhighlighted (clean text)
+            overlay.appendChild(document.createTextNode(wordText));
+          }
+        }
+
+        if (trailingWs) {
+          overlay.appendChild(document.createTextNode(trailingWs));
+        }
       });
+
+      overlay.scrollTop = inputBox.scrollTop;
+      inputBox.addEventListener('scroll', () => {
+        overlay.scrollTop = inputBox.scrollTop;
+      }, { passive: true });
 
       inputBox.parentElement.appendChild(overlay);
       return true;

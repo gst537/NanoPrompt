@@ -82,21 +82,15 @@ def _remove_docstrings(node: ast.AST):
 def _generic_code_compress(source: str) -> str:
     """
     Fallback compression for non-Python code (JS, Java, etc.).
-    Uses jsmin to strip block comments and inline comments, which is
-    highly effective for React/TypeScript and generic C-style syntax.
+    Uses safe line-stripping and regex to remove comments, 
+    avoiding jsmin which breaks on regular text apostrophes.
     """
-    try:
-        from jsmin import jsmin
-        # jsmin is designed for JS, but safely strips /* */ and // from TS/Java/C++ too.
-        minified = jsmin(source)
-        
-        # Post-process to remove completely blank lines that jsmin might leave
-        lines = minified.split("\n")
-        compressed_lines = [line.strip() for line in lines if line.strip()]
-        
-        return "\n".join(compressed_lines)
-    except Exception as e:
-        print(f"NanoPrompt: jsmin failed, falling back to basic strip. {e}")
-        # Absolute fallback if jsmin chokes on something weird
-        lines = source.split("\n")
-        return "\n".join([line.strip() for line in lines if line.strip()])
+    # Safely remove block comments
+    source = re.sub(r'/\*[\s\S]*?\*/', '', source)
+    
+    # Safely remove inline comments (only if there is space before them to avoid URLs)
+    source = re.sub(r'\s+//.*', '', source)
+
+    lines = source.split("\n")
+    compressed_lines = [line.strip() for line in lines if line.strip()]
+    return "\n".join(compressed_lines)

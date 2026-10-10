@@ -7,11 +7,14 @@ import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./nanoprompt.db")
+backend_root = Path(__file__).resolve().parents[2]
+default_db_path = f"sqlite+aiosqlite:///{backend_root}/nanoprompt.db"
+DATABASE_URL = os.getenv("DATABASE_URL", default_db_path)
 SYNC_DATABASE_URL = DATABASE_URL.replace("sqlite+aiosqlite", "sqlite")
 
 engine = create_async_engine(DATABASE_URL, echo=False)

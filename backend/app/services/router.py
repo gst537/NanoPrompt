@@ -58,10 +58,14 @@ def _is_code(text: str) -> bool:
         r"^\s*(if __name__\s*==\s*)",  # Python main guard
     ]
 
+    has_strong_pattern = False
     for line in lines:
         for pattern in strong_patterns:
             if re.match(pattern, line):
-                return True
+                has_strong_pattern = True
+                break
+        if has_strong_pattern:
+            break
 
     # Weak indicators (need multiple)
     weak_patterns = [
@@ -83,6 +87,19 @@ def _is_code(text: str) -> bool:
             if re.search(pattern, line):
                 code_indicators += 1
 
-    # If more than 30% of lines look like code, it's probably code
     code_ratio = code_indicators / total_lines
-    return code_ratio > 0.3
+
+    has_balanced_brackets = (
+        text.count('{') == text.count('}') and 
+        text.count('[') == text.count(']') and 
+        text.count('(') == text.count(')') and
+        (text.count('{') > 0 or text.count('[') > 0 or text.count('(') > 0)
+    )
+
+    if has_strong_pattern:
+        return True
+
+    if code_ratio > 0.4 and has_balanced_brackets:
+        return True
+
+    return False
