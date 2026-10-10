@@ -186,11 +186,7 @@ function injectUI() {
             // Only highlight key signal words that the AI considers important (Clean Green)
             const span = document.createElement('span');
             span.textContent = wordText;
-            span.style.backgroundColor = 'rgba(34, 197, 94, 0.28)';
-            span.style.borderBottom = '2px solid rgba(34, 197, 94, 0.90)';
-            span.style.borderRadius = '3px';
-            span.style.padding = '0';
-            span.style.margin = '0';
+            span.className = 'nanoprompt-token-highlight';
             overlay.appendChild(span);
           } else {
             // Conversational filler, stop words, and syntax are left unhighlighted (clean text)

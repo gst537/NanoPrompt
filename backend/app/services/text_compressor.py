@@ -121,6 +121,44 @@ FILLER_PHRASES = [
     r"\bkindly\b",
 ]
 
+def collapse_repeated_punctuation(text: str) -> str:
+    """
+    Collapses adjacent, repeated, or conflicting punctuation marks into a single clean mark.
+    Examples:
+        'perfectly.!' -> 'perfectly.'
+        'hello,.'     -> 'hello.'
+        'what??'      -> 'what?'
+        'yes!!'       -> 'yes!'
+        'end..'       -> 'end.'
+    """
+    result = text
+    # 1. Collapse spaces between punctuation marks (e.g. ". !" -> ".!")
+    while re.search(r'([,\.!\?:;])\s+([,\.!\?:;])', result):
+        result = re.sub(r'([,\.!\?:;])\s+([,\.!\?:;])', r'\1\2', result)
+    
+    # 2. Repeated identical punctuation (e.g. "..", "??", "!!", ",,")
+    result = re.sub(r'\.{2,}', '.', result)
+    result = re.sub(r'!{2,}', '!', result)
+    result = re.sub(r'\?{2,}', '?', result)
+    result = re.sub(r',{2,}', ',', result)
+    result = re.sub(r';{2,}', ';', result)
+    result = re.sub(r':{2,}', ':', result)
+    
+    # 3. Mixed conflicting punctuation:
+    # Period + Exclamation/Question (e.g. ".!", "!.") -> prioritize period for statements
+    result = re.sub(r'\.[!]+|[!]+\.', '.', result)
+    result = re.sub(r'\.[\?]+|[\?]+\.', '?', result)
+    # Question + Exclamation (e.g. "?!", "!?") -> prioritize question mark
+    result = re.sub(r'\?[!]+|[!]+\?', '?', result)
+    # Comma combined with period, exclamation, or question mark
+    result = re.sub(r',\.|,\!|,\?', lambda m: m.group(0)[1], result)
+    result = re.sub(r'\.,|\!\,|\?\,', lambda m: m.group(0)[0], result)
+    
+    # 4. Trailing commas or semicolons at the end of the text
+    result = re.sub(r'[,;]\s*$', '.', result)
+    
+    return result
+
 def apply_regex_pruning(text: str) -> str:
     """Applies basic regex removal of common conversational fluff."""
     result = text
@@ -130,8 +168,11 @@ def apply_regex_pruning(text: str) -> str:
     # Clean up punctuation left behind (like lone commas or periods)
     result = re.sub(r"^[,\.!\?\s]+", "", result) # leading
     result = re.sub(r"\s+[,\.!\?]\s+", " ", result) # middle orphans
+    result = collapse_repeated_punctuation(result)
     result = re.sub(r"  +", " ", result) # multiple spaces
     return result.strip()
+
+ALLOWED_PUNCT = {":", "{", "}", "(", ")", "[", "]", "=", "<", ">", "/", "-", ".", ",", "!", "?", ";"}
 
 def apply_spacy_pruning(text: str) -> str:
     """Uses SpaCy to intelligently drop syntactic fluff (determiners, polite verbs)."""
@@ -144,10 +185,14 @@ def apply_spacy_pruning(text: str) -> str:
     for token in doc:
         # Drop determiners like 'a', 'an', 'the'
         if token.pos_ == "DET":
+            if token.whitespace_ and retained_tokens and not retained_tokens[-1].endswith(" "):
+                retained_tokens[-1] += " "
             continue
             
-        # Drop punctuation that isn't crucial for code
-        if token.is_punct and token.text not in [":", "{", "}", "(", ")", "[", "]", "=", "<", ">", "/", "-"]:
+        # Drop punctuation that isn't crucial for code or sentence separation
+        if token.is_punct and token.text not in ALLOWED_PUNCT:
+            if token.whitespace_ and retained_tokens and not retained_tokens[-1].endswith(" "):
+                retained_tokens[-1] += " "
             continue
             
         retained_tokens.append(token.text_with_ws)
@@ -177,19 +222,23 @@ def compress_text(content: str) -> str:
         try:
             # RATE CONTROL: 0.7 preserves grammar and human prose (drops 30% of tokens)
             llm_results = compressor.compress_prompt(result, rate=0.7, force_tokens=['\n'])
-            compressed = llm_results.get('compressed_prompt', result)
-            
-            # 3. Final technical abbreviations & whitespace cleanup
-            compressed = apply_abbreviations(compressed)
-            compressed = re.sub(r"  +", " ", compressed)
-            compressed = re.sub(r"\n{3,}", "\n\n", compressed)
-            return compressed.strip()
+            result = llm_results.get('compressed_prompt', result)
         except Exception as e:
             print(f"LLMLingua compression failed: {e}. Relying on Regex+SpaCy fallback.")
             
-    # 3. Fallback path (if LLMLingua is missing or fails)
+    # 3. Final technical abbreviations & whitespace cleanup
     result = apply_abbreviations(result)
-    result = re.sub(r"  +", " ", result)
+    
+    # Collapse repeated or conflicting punctuation marks (e.g. ".!" -> ".", ".." -> ".")
+    result = collapse_repeated_punctuation(result)
+
+    # Ensure space after punctuation if immediately followed by alphanumeric
+    result = re.sub(r'([,\.!\?:;])([A-Za-z0-9])', r'\1 \2', result)
+    # Remove space immediately preceding punctuation
+    result = re.sub(r'\s+([,\.!\?:;])', r'\1', result)
+    # Normalize multiple spaces and newlines
+    result = re.sub(r'[ \t]+', ' ', result)
+    result = re.sub(r'\n{3,}', '\n\n', result)
     
     return result.strip()
 
@@ -248,7 +297,10 @@ def compress_document(content: str) -> str:
     result = content
     result = apply_regex_pruning(result)
     result = apply_safe_document_pruning(result)
-    result = re.sub(r"  +", " ", result)
+    result = collapse_repeated_punctuation(result)
+    result = re.sub(r'([,\.!\?:;])([A-Za-z0-9])', r'\1 \2', result)
+    result = re.sub(r'\s+([,\.!\?:;])', r'\1', result)
+    result = re.sub(r'[ \t]+', ' ', result)
     result = re.sub(r"\n{3,}", "\n\n", result)
     return result.strip()
 

@@ -136,9 +136,22 @@
   box-sizing: border-box;
 }
 .nanoprompt-ghost-overlay span {
-  border-radius: 2px;
   display: inline;
   padding: 0;
   margin: 0;
   box-sizing: border-box;
+}
+
+/* Configurable Token Highlight - adjust 'top' and 'left' to align perfectly */
+.nanoprompt-token-highlight {
+  background-color: rgba(34, 197, 94, 0.28);
+  border-bottom: 2px solid rgba(34, 197, 94, 0.90);
+  border-radius: 3px;
+  display: inline;
+  padding: 1px 0;       /* 0 left/right avoids horizontal drift */
+  margin: 0;
+  box-sizing: border-box;
+  position: relative;
+  top: -2px;            /* Nudge UP (negative) or DOWN (positive) */
+  left: -1ch;           /* Nudge LEFT by 1 character to align with text */
 }
