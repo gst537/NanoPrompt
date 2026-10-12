@@ -35,3 +35,10 @@ When instructing a user to modify `.env` files for a FastAPI application running
 1. **Selective Highlighting Only**: Only highlight tokens that the AI considers important (key semantic action verbs, domain nouns, technical terms, specific constraints) with subtle green (`rgba(34, 197, 94, 0.28)` and underline).
 2. **Never Highlight Non-Essential Tokens**: Conversational filler, stop words, pronouns, and syntactic glue MUST remain completely unhighlighted (clean, transparent text). Never paint non-essential words in red, rose, or amber blocks, as this creates a distracting and overwhelming overlay.
 3. **Zero Padding Drift**: Spans in `.nanoprompt-ghost-overlay` must maintain `padding: 0; margin: 0;` to avoid cumulative horizontal drift that misaligns words over multi-line prompt boxes.
+
+### NLP Pruning Whitespace & Punctuation Invariants
+
+1. **Whitespace Inheritance**: When stripping determiners, stop words, or filler tokens in SpaCy or regex pipelines, always preserve `token.whitespace_` on adjacent retained tokens. Never concatenate tokens across deleted boundaries.
+2. **Punctuation Normalization**: Always pass pruned text through punctuation collapsing to resolve duplicate or conflicting marks (e.g., `.!` -> `.`, `..` -> `.`).
+3. **Post-Punctuation Spacing**: Ensure that any sentence-ending or clause punctuation immediately preceding alphanumeric characters is separated by a single space (`([,\.!\?:;])([A-Za-z0-9])` -> `\1 \2`).
+

@@ -12,35 +12,63 @@ function findInputBox() {
 
 // Function to call local NanoPrompt API via Background Script
 async function compressText(text, type, apiUrl) {
+  if (!chrome.runtime?.id) {
+    console.warn("NanoPrompt: Extension context invalidated. Please refresh the page.");
+    return null;
+  }
   return new Promise((resolve) => {
-    chrome.runtime.sendMessage({
-      action: "COMPRESS",
-      text: text,
-      type: type,
-      apiUrl: apiUrl
-    }, (response) => {
-      if (response && response.success) {
-        resolve(response.data);
-      } else {
-        console.error("NanoPrompt compression failed:", response ? response.error : chrome.runtime.lastError);
-        resolve(null);
-      }
-    });
+    try {
+      chrome.runtime.sendMessage({
+        action: "COMPRESS",
+        text: text,
+        type: type,
+        apiUrl: apiUrl
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn("NanoPrompt compression error:", chrome.runtime.lastError.message);
+          resolve(null);
+          return;
+        }
+        if (response && response.success) {
+          resolve(response.data);
+        } else {
+          console.error("NanoPrompt compression failed:", response ? response.error : "Unknown error");
+          resolve(null);
+        }
+      });
+    } catch (err) {
+      console.warn("NanoPrompt: Failed to send COMPRESS message:", err.message);
+      resolve(null);
+    }
   });
 }
 
 async function getHeatmap(text) {
+  if (!chrome.runtime?.id) {
+    console.warn("NanoPrompt: Extension context invalidated. Please refresh the page.");
+    return null;
+  }
   return new Promise((resolve) => {
-    chrome.runtime.sendMessage({
-      action: "HEATMAP",
-      text: text
-    }, (response) => {
-      if (response && response.success) {
-        resolve(response.data.tokens);
-      } else {
-        resolve(null);
-      }
-    });
+    try {
+      chrome.runtime.sendMessage({
+        action: "HEATMAP",
+        text: text
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn("NanoPrompt heatmap error:", chrome.runtime.lastError.message);
+          resolve(null);
+          return;
+        }
+        if (response && response.success) {
+          resolve(response.data.tokens);
+        } else {
+          resolve(null);
+        }
+      });
+    } catch (err) {
+      console.warn("NanoPrompt: Failed to send HEATMAP message:", err.message);
+      resolve(null);
+    }
   });
 }
 
@@ -76,9 +104,19 @@ function injectUI() {
 
       // Get API URL from storage
       return new Promise((resolve) => {
-        chrome.storage.sync.get({ apiUrl: "http://localhost:8000/api/v1/compress" }, async (data) => {
-          const result = await compressText(originalTextCache, selectedType, data.apiUrl);
-          
+        if (!chrome.runtime?.id) {
+          alert("NanoPrompt extension was reloaded or updated. Please refresh the page.");
+          resolve(false);
+          return;
+        }
+        try {
+          chrome.storage.sync.get({ apiUrl: "http://localhost:8000/api/v1/compress" }, async (data) => {
+            if (chrome.runtime.lastError) {
+              console.warn("NanoPrompt storage error:", chrome.runtime.lastError.message);
+            }
+            const apiUrl = data?.apiUrl || "http://localhost:8000/api/v1/compress";
+            const result = await compressText(originalTextCache, selectedType, apiUrl);
+            
             if (result) {
               lastCompressedText = result.compressed_text;
               // Replace text
@@ -95,10 +133,14 @@ function injectUI() {
               // Show stats toast
               ui.showToast(result.stats.savings_usd, result.stats.tokens_saved);
               resolve(true);
-          } else {
-            resolve(false);
-          }
-        });
+            } else {
+              resolve(false);
+            }
+          });
+        } catch (err) {
+          console.warn("NanoPrompt storage access error:", err.message);
+          resolve(false);
+        }
       });
     },
     // onUndoClick
@@ -212,6 +254,10 @@ function injectUI() {
   // Use a MutationObserver to detect text changes instead of 'input' events
   // because ProseMirror (Claude) intercepts or swallows standard input events.
   const inputObserver = new MutationObserver(() => {
+    if (!chrome.runtime?.id) {
+      inputObserver.disconnect();
+      return;
+    }
     if (originalTextCache) {
       const currentText = inputBox.tagName.toLowerCase() === 'textarea' ? inputBox.value : inputBox.textContent;
       
@@ -256,13 +302,21 @@ function injectUI() {
 
 // Mutation observer to detect when chat input is added to the DOM (SPAs)
 const observer = new MutationObserver(() => {
+  if (!chrome.runtime?.id) {
+    observer.disconnect();
+    return;
+  }
   injectUI();
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
 
 // Try initial injection
-setTimeout(injectUI, 1000);
+setTimeout(() => {
+  if (chrome.runtime?.id) {
+    injectUI();
+  }
+}, 1000);
 
 // Listen for messages from background script (e.g. Context Menu actions)
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

@@ -2,28 +2,39 @@
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "HEATMAP") {
-    fetch("http://localhost:8000/api/v1/heatmap", {
+    const baseUrl = request.apiUrl ? request.apiUrl.replace(/\/compress\/?$/, "") : "http://localhost:8000/api/v1";
+    const heatmapUrl = baseUrl.endsWith("/api/v1") ? `${baseUrl}/heatmap` : `${baseUrl}/api/v1/heatmap`;
+
+    fetch(heatmapUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: request.text })
     })
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) throw new Error(`API Error: ${r.status}`);
+      return r.json();
+    })
     .then(data => sendResponse({ success: true, data: data }))
-    .catch(err => sendResponse({ success: false, error: err.message }));
+    .catch(err => {
+      const msg = err.message === "Failed to fetch" 
+        ? "Cannot connect to NanoPrompt backend (localhost:8000). Ensure the backend server is running." 
+        : err.message;
+      console.error("NanoPrompt Background Heatmap Error:", msg);
+      sendResponse({ success: false, error: msg });
+    });
     return true;
   }
 
   if (request.action === "COMPRESS") {
-    // Perform the fetch request here to bypass mixed-content blocks
-    // since the background script has its own security context.
-    fetch(request.apiUrl, {
+    const targetUrl = request.apiUrl || "http://localhost:8000/api/v1/compress";
+    fetch(targetUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
         content: request.text,
-        type: request.type
+        type: request.type || "auto"
       })
     })
     .then(response => {
@@ -36,11 +47,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: true, data: data });
     })
     .catch(error => {
-      console.error("NanoPrompt Background Fetch Error:", error);
-      sendResponse({ success: false, error: error.message });
+      const msg = error.message === "Failed to fetch"
+        ? "Cannot connect to NanoPrompt backend (localhost:8000). Ensure the backend server is running."
+        : error.message;
+      console.error("NanoPrompt Background Fetch Error:", msg);
+      sendResponse({ success: false, error: msg });
     });
 
-// Return true to indicate we will respond asynchronously
     return true;
   }
 });
